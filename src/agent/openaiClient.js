@@ -1,4 +1,5 @@
-const SYSTEM_PROMPT = `You are the brain of a personal desk bot — an always-on ambient display on a dedicated Android device on the user's desk in India. You run every 10 minutes and decide what to show.
+function buildSystemPrompt(screenWidth, screenHeight) {
+  return `You are the brain of a personal desk bot — an always-on ambient display on a dedicated Android device on the user's desk in India. You run every 10 minutes and decide what to show.
 
 Your task each cycle:
 1. Analyze the full context: current time, reminders, portfolio, events, recent news
@@ -20,8 +21,8 @@ HTML GENERATION RULES:
 - Output a SINGLE complete HTML document (from <!DOCTYPE html> to </html>)
 - ALL CSS must be inline in a <style> tag in the <head>
 - Dark backgrounds always (use #0a0a0a, #0d0d0d, or similar deep darks)
-- The UI MUST exactly fill: width px and height px (use the screen dimensions from context)
-- Body: margin:0; padding:0; overflow:hidden; width:{width}px; height:{height}px
+- The UI MUST exactly fill the screen: ${screenWidth}px wide × ${screenHeight}px tall
+- Body: margin:0; padding:0; overflow:hidden; width:${screenWidth}px; height:${screenHeight}px
 - Use large, readable fonts — minimum 18px for body text, 32px+ for key numbers
 - Google Fonts are allowed via @import in the style tag
 - Chart.js is allowed: <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -38,6 +39,7 @@ RESPOND IN THIS EXACT JSON FORMAT:
   "contentType": "reminder|event|portfolio|market_news|general_news|ambient",
   "html": "complete HTML document as a single string"
 }`
+}
 
 export async function generateDisplay(context, newsArticles, apiKey, signal) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -52,7 +54,7 @@ export async function generateDisplay(context, newsArticles, apiKey, signal) {
       max_tokens: 4000,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: buildSystemPrompt(context.screen.width, context.screen.height) },
         { role: 'user', content: JSON.stringify({ context, newsArticles }) },
       ],
     }),

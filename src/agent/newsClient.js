@@ -17,6 +17,10 @@ export async function fetchFinanceNews(apiKey, symbols = []) {
       headers: { 'X-Api-Key': apiKey },
     })
 
+    if (!response.ok) {
+      console.warn(`[NewsAPI] fetchFinanceNews error ${response.status}`)
+      return []
+    }
     const data = await response.json()
     return (data.articles || []).map((a) => ({
       title: a.title,
@@ -44,6 +48,10 @@ export async function fetchGeneralNews(apiKey) {
       headers: { 'X-Api-Key': apiKey },
     })
 
+    if (!response.ok) {
+      console.warn(`[NewsAPI] fetchGeneralNews error ${response.status}`)
+      return []
+    }
     const data = await response.json()
     return (data.articles || []).map((a) => ({
       title: a.title,

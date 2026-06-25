@@ -64,7 +64,15 @@ export function useAgentLoop() {
     if (!isPausedRef.current) return
     isPausedRef.current = false
     setIsPaused(false)
-    refresh()
+    // Restart the interval loop so any interval change saved in Settings takes effect
+    stopRef.current?.()
+    const settings = getSettings()
+    setState((prev) => ({ ...prev, status: 'loading' }))
+    stopRef.current = startLoop(
+      (...args) => onResultRef.current(...args),
+      (...args) => onErrorRef.current(...args),
+      settings.cycleIntervalMinutes || 10,
+    )
   }
 
   return { ...state, refresh, pause, resume, isPaused }

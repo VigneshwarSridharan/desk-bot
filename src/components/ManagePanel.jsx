@@ -671,6 +671,11 @@ const ManagePanel = memo(function ManagePanel({ onClose }) {
     requestAnimationFrame(() => setVisible(true))
   }, [])
 
+  function handleClose() {
+    setVisible(false)
+    setTimeout(onClose, 280)
+  }
+
   const TabContent = TAB_COMPONENTS[activeTab]
 
   return (
@@ -686,7 +691,7 @@ const ManagePanel = memo(function ManagePanel({ onClose }) {
         >
           <h1 className="text-white text-lg font-semibold tracking-wide">Desk Bot</h1>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-2xl leading-none transition-colors"
             style={{ color: C.muted, background: 'none', border: 'none', cursor: 'pointer' }}
             aria-label="Close"

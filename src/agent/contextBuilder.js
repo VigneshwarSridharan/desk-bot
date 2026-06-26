@@ -3,6 +3,7 @@ import { getPortfolio } from '../store/portfolio'
 import { getReminders } from '../store/reminders'
 import { getUpcomingEvents } from '../store/events'
 import { getLastN } from '../store/history'
+import { getActiveTasks } from '../store/tasks'
 
 const DAY_MAP = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -71,6 +72,10 @@ export function buildContext() {
       upcoming,
       todayCount,
     },
+    tasks: getActiveTasks().sort((a, b) => {
+      const priority = { high: 0, medium: 1, low: 2 }
+      return (priority[a.priority] ?? 1) - (priority[b.priority] ?? 1)
+    }),
     recentHistory: history.map((h) => ({ type: h.type, summary: h.summary })),
   }
 }

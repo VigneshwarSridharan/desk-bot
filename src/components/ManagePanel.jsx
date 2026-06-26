@@ -8,6 +8,9 @@ import {
 import {
   getEvents, addEvent, removeEvent,
 } from '../store/events'
+import {
+  getTasks, addTask, removeTask, toggleTask,
+} from '../store/tasks'
 import { getSettings, saveSettings } from '../store/settings'
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
@@ -519,6 +522,153 @@ function EventsTab() {
   )
 }
 
+// ─── Tasks Tab ────────────────────────────────────────────────────────────────
+
+const PRIORITY_COLORS = { high: '#ef4444', medium: '#f59e0b', low: '#6b7280' }
+const PRIORITY_LABELS = { high: 'HIGH', medium: 'MED', low: 'LOW' }
+
+function PriorityDot({ priority }) {
+  return (
+    <span
+      style={{
+        display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+        backgroundColor: PRIORITY_COLORS[priority] || PRIORITY_COLORS.medium,
+        flexShrink: 0, marginTop: 2,
+      }}
+    />
+  )
+}
+
+function TaskRow({ task, onRemove, onToggle }) {
+  const dueStr = task.due
+    ? new Date(task.due + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+    : null
+  const isOverdue = task.due && task.due < new Date().toISOString().slice(0, 10)
+
+  return (
+    <div
+      className="flex items-start justify-between py-2.5"
+      style={{ borderBottom: `1px solid ${C.border}`, opacity: task.done ? 0.45 : 1 }}
+    >
+      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+        <button
+          onClick={onToggle}
+          style={{
+            width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 1,
+            border: `2px solid ${task.done ? C.accent : C.border}`,
+            background: task.done ? C.accent : 'transparent', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          aria-label={task.done ? 'Mark incomplete' : 'Mark complete'}
+        >
+          {task.done && <span style={{ color: '#fff', fontSize: 10, lineHeight: 1 }}>✓</span>}
+        </button>
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <span
+            className="text-sm font-medium"
+            style={{ color: C.text, textDecoration: task.done ? 'line-through' : 'none' }}
+          >
+            {task.title}
+          </span>
+          <div className="flex items-center gap-2">
+            <PriorityDot priority={task.priority} />
+            <span className="text-xs" style={{ color: PRIORITY_COLORS[task.priority] || C.muted }}>
+              {PRIORITY_LABELS[task.priority] || 'MED'}
+            </span>
+            {dueStr && (
+              <span className="text-xs" style={{ color: isOverdue ? '#ef4444' : C.muted }}>
+                {isOverdue ? '⚠ ' : ''}Due {dueStr}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <Btn variant="danger" small onClick={onRemove}>✕</Btn>
+    </div>
+  )
+}
+
+const BLANK_TASK = { title: '', priority: 'medium', due: '' }
+
+function AddTaskForm({ onAdd, onCancel }) {
+  const [form, setForm] = useState(BLANK_TASK)
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  function submit() {
+    if (!form.title.trim()) return
+    addTask({ title: form.title.trim(), priority: form.priority, due: form.due || null })
+    onAdd()
+  }
+
+  return (
+    <Card className="mt-3">
+      <div className="flex flex-col gap-3 mb-3">
+        <Input label="Task *" value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="Review PR #42" />
+        <Select label="Priority" value={form.priority} onChange={(e) => set('priority', e.target.value)}>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </Select>
+        <Input label="Due date (optional)" type="date" value={form.due} onChange={(e) => set('due', e.target.value)} />
+      </div>
+      <div className="flex gap-2">
+        <Btn onClick={submit}>Add</Btn>
+        <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
+      </div>
+    </Card>
+  )
+}
+
+function TasksTab() {
+  const [tasks, setTasks] = useState([])
+  const [showForm, setShowForm] = useState(false)
+
+  const refresh = useCallback(() => setTasks(getTasks()), [])
+  useEffect(refresh, [refresh])
+
+  const active = tasks.filter((t) => !t.done)
+  const done = tasks.filter((t) => t.done)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <SectionTitle>Tasks ({active.length} active)</SectionTitle>
+        {!showForm && <Btn small onClick={() => setShowForm(true)}>+ Add Task</Btn>}
+      </div>
+      {tasks.length === 0 && !showForm && (
+        <p className="text-sm py-4" style={{ color: C.muted }}>No tasks yet.</p>
+      )}
+      {active.map((t) => (
+        <TaskRow
+          key={t.id}
+          task={t}
+          onRemove={() => { removeTask(t.id); refresh() }}
+          onToggle={() => { toggleTask(t.id); refresh() }}
+        />
+      ))}
+      {showForm && (
+        <AddTaskForm
+          onAdd={() => { setShowForm(false); refresh() }}
+          onCancel={() => setShowForm(false)}
+        />
+      )}
+      {done.length > 0 && (
+        <div className="mt-4">
+          <SectionTitle>Completed ({done.length})</SectionTitle>
+          {done.map((t) => (
+            <TaskRow
+              key={t.id}
+              task={t}
+              onRemove={() => { removeTask(t.id); refresh() }}
+              onToggle={() => { toggleTask(t.id); refresh() }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 function PasswordInput({ label, value, onChange, placeholder }) {
@@ -606,12 +756,106 @@ function SettingsTab() {
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <PasswordInput
-        label="OpenAI API Key"
-        value={form.openaiApiKey}
-        onChange={(e) => set('openaiApiKey', e.target.value)}
-        placeholder="sk-..."
-      />
+      <Select
+        label="LLM Provider"
+        value={form.llmProvider || 'claude'}
+        onChange={(e) => set('llmProvider', e.target.value)}
+      >
+        <option value="claude">Claude (Anthropic) — default</option>
+        <option value="openai">OpenAI (GPT-4o)</option>
+        <option value="zai">Z.ai (GLM-5.2)</option>
+        <option value="custom">Custom / Ollama (any OpenAI-compatible)</option>
+      </Select>
+
+      {(form.llmProvider === 'claude' || !form.llmProvider) && (
+        <PasswordInput
+          label="Claude API Key (Anthropic)"
+          value={form.claudeApiKey}
+          onChange={(e) => set('claudeApiKey', e.target.value)}
+          placeholder="sk-ant-..."
+        />
+      )}
+
+      {form.llmProvider === 'openai' && (
+        <PasswordInput
+          label="OpenAI API Key"
+          value={form.openaiApiKey}
+          onChange={(e) => set('openaiApiKey', e.target.value)}
+          placeholder="sk-..."
+        />
+      )}
+
+      {form.llmProvider === 'zai' && (
+        <PasswordInput
+          label="Z.ai API Key"
+          value={form.zaiApiKey || ''}
+          onChange={(e) => set('zaiApiKey', e.target.value)}
+          placeholder="Your Z.ai API key"
+        />
+      )}
+
+      {(form.llmProvider === 'custom' || form.llmProvider === 'ollama') && (
+        <>
+          <Input
+            label="Base URL"
+            value={form.customBaseUrl || ''}
+            onChange={(e) => set('customBaseUrl', e.target.value)}
+            placeholder="http://localhost:11434/v1"
+          />
+          <Input
+            label="Model"
+            value={form.customModel || ''}
+            onChange={(e) => set('customModel', e.target.value)}
+            placeholder="llama3, gpt-oss:120b-cloud, glm-5.2 …"
+          />
+          <PasswordInput
+            label="API Key (leave blank if not required)"
+            value={form.customApiKey || ''}
+            onChange={(e) => set('customApiKey', e.target.value)}
+            placeholder="Bearer token or API key"
+          />
+        </>
+      )}
+
+      <div className="flex flex-col gap-3">
+        <label style={{ color: C.muted, fontSize: 12 }}>Weather Location (Open-Meteo — free, no key needed)</label>
+        <Input
+          label="City name (display only)"
+          value={form.weatherCity || ''}
+          onChange={(e) => set('weatherCity', e.target.value)}
+          placeholder="Chennai"
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Latitude"
+            type="number"
+            step="0.0001"
+            value={form.weatherLat || ''}
+            onChange={(e) => set('weatherLat', e.target.value)}
+            placeholder="13.0827"
+          />
+          <Input
+            label="Longitude"
+            type="number"
+            step="0.0001"
+            value={form.weatherLon || ''}
+            onChange={(e) => set('weatherLon', e.target.value)}
+            placeholder="80.2707"
+          />
+        </div>
+        <span style={{ color: C.muted, fontSize: 11 }}>
+          Find your coordinates at{' '}
+          <a
+            href="https://www.latlong.net"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: C.accent }}
+          >
+            latlong.net
+          </a>
+        </span>
+      </div>
+
       <PasswordInput
         label="NewsAPI Key (newsapi.org)"
         value={form.newsApiKey}
@@ -654,12 +898,13 @@ function SettingsTab() {
 
 // ─── ManagePanel root ─────────────────────────────────────────────────────────
 
-const TABS = ['Portfolio', 'Reminders', 'Events', 'Settings']
+const TABS = ['Portfolio', 'Reminders', 'Events', 'Tasks', 'Settings']
 
 const TAB_COMPONENTS = {
   Portfolio: PortfolioTab,
   Reminders: RemindersTab,
   Events: EventsTab,
+  Tasks: TasksTab,
   Settings: SettingsTab,
 }
 

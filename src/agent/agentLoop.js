@@ -1,7 +1,8 @@
 import { buildContext } from './contextBuilder'
 import { fetchFinanceNews, fetchGeneralNews } from './newsClient'
-import { generateDisplay } from './openaiClient'
-import { getSettings } from '../store/settings'
+import { fetchWeather } from './weatherClient'
+import { generateDisplay } from '../llm/index'
+import { getSettings, hasRequiredKeys } from '../store/settings'
 import { addToHistory } from '../store/history'
 
 async function runCycleOnce(onResult) {
@@ -12,8 +13,8 @@ async function runCycleOnce(onResult) {
     const context = buildContext()
     const settings = getSettings()
 
-    if (!settings.openaiApiKey) {
-      throw new Error('No OpenAI API key configured')
+    if (!hasRequiredKeys()) {
+      throw new Error('No API key configured')
     }
 
     let newsArticles = []
@@ -37,10 +38,23 @@ async function runCycleOnce(onResult) {
       }
     }
 
+    if (settings.weatherLat && settings.weatherLon) {
+      try {
+        context.weather = await fetchWeather(
+          settings.weatherLat,
+          settings.weatherLon,
+          controller.signal,
+        )
+        context.weather.city = settings.weatherCity || null
+      } catch (e) {
+        console.warn('[AgentLoop] Weather fetch failed:', e.message)
+      }
+    }
+
     const { decision, contentType, html } = await generateDisplay(
       context,
       newsArticles,
-      settings.openaiApiKey,
+      settings,
       controller.signal,
     )
 
@@ -56,8 +70,7 @@ export async function runCycle(onResult, onError) {
     await runCycleOnce(onResult)
   } catch (error) {
     console.error(`[${new Date().toISOString()}] AgentLoop error:`, error)
-    // Missing API key won't fix itself — surface immediately without retry
-    if (error.message === 'No OpenAI API key configured') {
+    if (error.message === 'No API key configured') {
       onError(error)
       return
     }

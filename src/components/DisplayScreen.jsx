@@ -1,6 +1,19 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { hasRequiredKeys } from '../store/settings'
+import { getSettings } from '../api/settings.js'
 import FallbackClock from './FallbackClock'
+
+async function checkHasRequiredKeys() {
+  try {
+    const s = await getSettings()
+    const provider = s.llmProvider || 'claude'
+    if (provider === 'claude') return !!s.claudeApiKey
+    if (provider === 'openai') return !!s.openaiApiKey
+    if (provider === 'zai') return !!s.zaiApiKey
+    return !!(s.customBaseUrl) // custom/ollama — URL is enough
+  } catch {
+    return false
+  }
+}
 
 // ─── Welcome Screen ──────────────────────────────────────────────────────────
 
@@ -254,16 +267,17 @@ function DisplayContent({ loop, onOpenManage }) {
 // ─── Display Screen (root, checks API key before starting loop) ───────────────
 
 const DisplayScreen = memo(function DisplayScreen({ onOpenManage, loop }) {
-  const [hasKeys, setHasKeys] = useState(hasRequiredKeys)
+  const [hasKeys, setHasKeys] = useState(false)
 
-  // Poll every 2s while on welcome screen — detects when user saves API key
+  // Check on mount and poll every 2s while on welcome screen
   useEffect(() => {
-    if (hasKeys) return
-    const t = setInterval(() => {
-      if (hasRequiredKeys()) setHasKeys(true)
+    checkHasRequiredKeys().then(setHasKeys)
+    const t = setInterval(async () => {
+      const ok = await checkHasRequiredKeys()
+      if (ok) setHasKeys(true)
     }, 2000)
     return () => clearInterval(t)
-  }, [hasKeys])
+  }, [])
 
   if (!hasKeys) {
     return <WelcomeScreen onOpenManage={onOpenManage} />

@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback, memo } from 'react'
 import {
   getPortfolio, addHolding, removeHolding, addToWatchlist, removeFromWatchlist,
-} from '../store/portfolio'
+} from '../api/portfolio.js'
 import {
   getReminders, addReminder, removeReminder, toggleReminder,
-} from '../store/reminders'
+} from '../api/reminders.js'
 import {
   getEvents, addEvent, removeEvent,
-} from '../store/events'
+} from '../api/events.js'
 import {
   getTasks, addTask, removeTask, toggleTask,
-} from '../store/tasks'
-import { getSettings, saveSettings } from '../store/settings'
+} from '../api/tasks.js'
+import { getSettings, saveSettings, saveApiKey } from '../api/settings.js'
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
@@ -25,15 +25,15 @@ const C = {
   danger: '#ef4444',
 }
 
-function Btn({ children, onClick, variant = 'primary', small, className = '' }) {
+function Btn({ children, onClick, variant = 'primary', small, disabled, className = '' }) {
   const base = `inline-flex items-center justify-center rounded-lg font-medium transition-colors cursor-pointer border-0 ${small ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'} ${className}`
   const styles = {
-    primary: { backgroundColor: C.accent, color: '#fff' },
+    primary: { backgroundColor: disabled ? '#1e3a5f' : C.accent, color: '#fff', opacity: disabled ? 0.6 : 1 },
     ghost: { backgroundColor: 'transparent', color: C.muted, border: `1px solid ${C.border}` },
     danger: { backgroundColor: 'transparent', color: C.danger, border: `1px solid ${C.danger}` },
   }
   return (
-    <button onClick={onClick} className={base} style={styles[variant]}>
+    <button onClick={onClick} className={base} style={styles[variant]} disabled={disabled}>
       {children}
     </button>
   )
@@ -129,17 +129,23 @@ function HoldingRow({ item, onRemove }) {
 
 function AddHoldingForm({ watchlistOnly, onAdd, onCancel }) {
   const [form, setForm] = useState(BLANK_HOLDING)
+  const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  function submit() {
+  async function submit() {
     if (!form.symbol.trim()) return
-    const payload = { ...form, quantity: Number(form.quantity) || 0, avgPrice: Number(form.avgPrice) || 0 }
-    if (watchlistOnly) {
-      addToWatchlist(payload)
-    } else {
-      addHolding(payload)
+    setSaving(true)
+    try {
+      const payload = { ...form, quantity: Number(form.quantity) || 0, avgPrice: Number(form.avgPrice) || 0 }
+      if (watchlistOnly) {
+        await addToWatchlist(payload)
+      } else {
+        await addHolding(payload)
+      }
+      onAdd()
+    } finally {
+      setSaving(false)
     }
-    onAdd()
   }
 
   return (
@@ -160,7 +166,7 @@ function AddHoldingForm({ watchlistOnly, onAdd, onCancel }) {
         )}
       </div>
       <div className="flex gap-2">
-        <Btn onClick={submit}>Add</Btn>
+        <Btn onClick={submit} disabled={saving}>{saving ? 'Adding…' : 'Add'}</Btn>
         <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
       </div>
     </Card>
@@ -172,12 +178,15 @@ function PortfolioTab() {
   const [showHoldingForm, setShowHoldingForm] = useState(false)
   const [showWatchlistForm, setShowWatchlistForm] = useState(false)
 
-  const refresh = useCallback(() => setData(getPortfolio()), [])
-  useEffect(refresh, [refresh])
+  const refresh = useCallback(async () => {
+    const d = await getPortfolio()
+    setData(d)
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Holdings */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <SectionTitle>Holdings ({data.holdings.length})</SectionTitle>
@@ -189,7 +198,7 @@ function PortfolioTab() {
           <p className="text-sm py-4" style={{ color: C.muted }}>No holdings yet.</p>
         )}
         {data.holdings.map((h) => (
-          <HoldingRow key={h.id} item={h} onRemove={() => { removeHolding(h.id); refresh() }} />
+          <HoldingRow key={h.id} item={h} onRemove={async () => { await removeHolding(h.id); refresh() }} />
         ))}
         {showHoldingForm && (
           <AddHoldingForm
@@ -200,7 +209,6 @@ function PortfolioTab() {
         )}
       </div>
 
-      {/* Watchlist */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <SectionTitle>Watchlist ({data.watchlist.length})</SectionTitle>
@@ -212,7 +220,7 @@ function PortfolioTab() {
           <p className="text-sm py-4" style={{ color: C.muted }}>Nothing in watchlist.</p>
         )}
         {data.watchlist.map((w) => (
-          <HoldingRow key={w.id} item={w} onRemove={() => { removeFromWatchlist(w.id); refresh() }} />
+          <HoldingRow key={w.id} item={w} onRemove={async () => { await removeFromWatchlist(w.id); refresh() }} />
         ))}
         {showWatchlistForm && (
           <AddHoldingForm
@@ -271,6 +279,7 @@ function ReminderRow({ r, onRemove, onToggle }) {
 
 function AddReminderForm({ onAdd, onCancel }) {
   const [form, setForm] = useState(BLANK_REMINDER)
+  const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
   function toggleDay(d) {
@@ -282,15 +291,20 @@ function AddReminderForm({ onAdd, onCancel }) {
     })
   }
 
-  function submit() {
+  async function submit() {
     if (!form.title.trim() || !form.time) return
-    addReminder({
-      title: form.title.trim(),
-      time: form.time,
-      days: form.daysMode === 'daily' ? 'daily' : form.selectedDays,
-      note: form.note.trim(),
-    })
-    onAdd()
+    setSaving(true)
+    try {
+      await addReminder({
+        title: form.title.trim(),
+        time: form.time,
+        days: form.daysMode === 'daily' ? 'daily' : form.selectedDays,
+        note: form.note.trim(),
+      })
+      onAdd()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -335,7 +349,7 @@ function AddReminderForm({ onAdd, onCancel }) {
         <Input label="Note (optional)" value={form.note} onChange={(e) => set('note', e.target.value)} placeholder="Optional note" />
       </div>
       <div className="flex gap-2">
-        <Btn onClick={submit}>Add</Btn>
+        <Btn onClick={submit} disabled={saving}>{saving ? 'Adding…' : 'Add'}</Btn>
         <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
       </div>
     </Card>
@@ -346,8 +360,8 @@ function RemindersTab() {
   const [reminders, setReminders] = useState([])
   const [showForm, setShowForm] = useState(false)
 
-  const refresh = useCallback(() => setReminders(getReminders()), [])
-  useEffect(refresh, [refresh])
+  const refresh = useCallback(async () => setReminders(await getReminders()), [])
+  useEffect(() => { refresh() }, [refresh])
 
   return (
     <div>
@@ -362,8 +376,8 @@ function RemindersTab() {
         <ReminderRow
           key={r.id}
           r={r}
-          onRemove={() => { removeReminder(r.id); refresh() }}
-          onToggle={() => { toggleReminder(r.id); refresh() }}
+          onRemove={async () => { await removeReminder(r.id); refresh() }}
+          onToggle={async () => { await toggleReminder(r.id); refresh() }}
         />
       ))}
       {showForm && (
@@ -379,16 +393,6 @@ function RemindersTab() {
 // ─── Events Tab ───────────────────────────────────────────────────────────────
 
 const BLANK_EVENT = { title: '', date: '', time: '', description: '', type: 'event' }
-
-function isSameDay(dateStr, ref) {
-  return dateStr === ref.toISOString().slice(0, 10)
-}
-
-function formatDate(dateStr) {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-IN', {
-    day: 'numeric', month: 'short', weekday: 'short',
-  })
-}
 
 function EventRow({ ev, onRemove }) {
   const today = new Date().toISOString().slice(0, 10)
@@ -430,12 +434,18 @@ function EventRow({ ev, onRemove }) {
 
 function AddEventForm({ onAdd, onCancel }) {
   const [form, setForm] = useState(BLANK_EVENT)
+  const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  function submit() {
+  async function submit() {
     if (!form.title.trim() || !form.date) return
-    addEvent({ ...form, title: form.title.trim(), time: form.time || null })
-    onAdd()
+    setSaving(true)
+    try {
+      await addEvent({ ...form, title: form.title.trim(), time: form.time || null })
+      onAdd()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -457,7 +467,7 @@ function AddEventForm({ onAdd, onCancel }) {
         </div>
       </div>
       <div className="flex gap-2">
-        <Btn onClick={submit}>Add</Btn>
+        <Btn onClick={submit} disabled={saving}>{saving ? 'Adding…' : 'Add'}</Btn>
         <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
       </div>
     </Card>
@@ -468,8 +478,11 @@ function EventsTab() {
   const [events, setEvents] = useState([])
   const [showForm, setShowForm] = useState(false)
 
-  const refresh = useCallback(() => setEvents(getEvents().sort((a, b) => a.date.localeCompare(b.date))), [])
-  useEffect(refresh, [refresh])
+  const refresh = useCallback(async () => {
+    const evs = await getEvents()
+    setEvents(evs.sort((a, b) => a.date.localeCompare(b.date)))
+  }, [])
+  useEffect(() => { refresh() }, [refresh])
 
   const today = new Date().toISOString().slice(0, 10)
   const weekEnd = new Date()
@@ -492,21 +505,19 @@ function EventsTab() {
       <div className="mb-4">
         <SectionTitle>{label}</SectionTitle>
         {items.map((ev) => (
-          <EventRow key={ev.id} ev={ev} onRemove={() => { removeEvent(ev.id); refresh() }} />
+          <EventRow key={ev.id} ev={ev} onRemove={async () => { await removeEvent(ev.id); refresh() }} />
         ))}
       </div>
     )
   }
 
-  const total = events.length
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <SectionTitle>Events ({total})</SectionTitle>
+        <SectionTitle>Events ({events.length})</SectionTitle>
         {!showForm && <Btn small onClick={() => setShowForm(true)}>+ Add Event</Btn>}
       </div>
-      {total === 0 && !showForm && (
+      {events.length === 0 && !showForm && (
         <p className="text-sm py-4" style={{ color: C.muted }}>No events yet.</p>
       )}
       <Group label="Today" items={grouped.today} />
@@ -592,12 +603,18 @@ const BLANK_TASK = { title: '', priority: 'medium', due: '' }
 
 function AddTaskForm({ onAdd, onCancel }) {
   const [form, setForm] = useState(BLANK_TASK)
+  const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  function submit() {
+  async function submit() {
     if (!form.title.trim()) return
-    addTask({ title: form.title.trim(), priority: form.priority, due: form.due || null })
-    onAdd()
+    setSaving(true)
+    try {
+      await addTask({ title: form.title.trim(), priority: form.priority, due: form.due || null })
+      onAdd()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -612,7 +629,7 @@ function AddTaskForm({ onAdd, onCancel }) {
         <Input label="Due date (optional)" type="date" value={form.due} onChange={(e) => set('due', e.target.value)} />
       </div>
       <div className="flex gap-2">
-        <Btn onClick={submit}>Add</Btn>
+        <Btn onClick={submit} disabled={saving}>{saving ? 'Adding…' : 'Add'}</Btn>
         <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
       </div>
     </Card>
@@ -623,8 +640,8 @@ function TasksTab() {
   const [tasks, setTasks] = useState([])
   const [showForm, setShowForm] = useState(false)
 
-  const refresh = useCallback(() => setTasks(getTasks()), [])
-  useEffect(refresh, [refresh])
+  const refresh = useCallback(async () => setTasks(await getTasks()), [])
+  useEffect(() => { refresh() }, [refresh])
 
   const active = tasks.filter((t) => !t.done)
   const done = tasks.filter((t) => t.done)
@@ -642,8 +659,8 @@ function TasksTab() {
         <TaskRow
           key={t.id}
           task={t}
-          onRemove={() => { removeTask(t.id); refresh() }}
-          onToggle={() => { toggleTask(t.id); refresh() }}
+          onRemove={async () => { await removeTask(t.id); refresh() }}
+          onToggle={async () => { await toggleTask(t.id); refresh() }}
         />
       ))}
       {showForm && (
@@ -659,8 +676,8 @@ function TasksTab() {
             <TaskRow
               key={t.id}
               task={t}
-              onRemove={() => { removeTask(t.id); refresh() }}
-              onToggle={() => { toggleTask(t.id); refresh() }}
+              onRemove={async () => { await removeTask(t.id); refresh() }}
+              onToggle={async () => { await toggleTask(t.id); refresh() }}
             />
           ))}
         </div>
@@ -670,6 +687,13 @@ function TasksTab() {
 }
 
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
+
+const DEFAULT_SETTINGS = {
+  llmProvider: 'claude', claudeApiKey: '', openaiApiKey: '', zaiApiKey: '',
+  customApiKey: '', customBaseUrl: '', customModel: '', newsApiKey: '',
+  weatherLat: '', weatherLon: '', weatherCity: '', cycleIntervalMinutes: 10,
+  screenWidth: 412, screenHeight: 892,
+}
 
 function PasswordInput({ label, value, onChange, placeholder }) {
   const [show, setShow] = useState(false)
@@ -735,11 +759,24 @@ function AndroidSetupGuide() {
 }
 
 function SettingsTab() {
-  const [form, setForm] = useState(() => getSettings())
+  const [form, setForm] = useState(DEFAULT_SETTINGS)
   const [saved, setSaved] = useState(false)
   const [detectedSize, setDetectedSize] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [apiKeyFields, setApiKeyFields] = useState({
+    claudeApiKey: '', openaiApiKey: '', zaiApiKey: '', customApiKey: '', newsApiKey: '',
+  })
+
+  useEffect(() => {
+    getSettings().then((s) => {
+      // Backend sends '••••••••' for keys that are set — keep local fields blank
+      setForm(s)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const setKey = (k, v) => setApiKeyFields((f) => ({ ...f, [k]: v }))
 
   function detectScreen() {
     const w = window.innerWidth
@@ -748,11 +785,22 @@ function SettingsTab() {
     setDetectedSize({ w, h })
   }
 
-  function handleSave() {
-    saveSettings(form)
+  async function handleSave() {
+    // Save non-key settings
+    await saveSettings(form)
+
+    // Save any API keys that were entered (non-empty, non-placeholder)
+    for (const [key, value] of Object.entries(apiKeyFields)) {
+      if (value && value !== '••••••••') {
+        await saveApiKey(key, value)
+      }
+    }
+
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
+
+  if (loading) return <p style={{ color: C.muted }}>Loading settings…</p>
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
@@ -763,34 +811,34 @@ function SettingsTab() {
       >
         <option value="claude">Claude (Anthropic) — default</option>
         <option value="openai">OpenAI (GPT-4o)</option>
-        <option value="zai">Z.ai (GLM-5.2)</option>
+        <option value="zai">Z.ai (GLM)</option>
         <option value="custom">Custom / Ollama (any OpenAI-compatible)</option>
       </Select>
 
       {(form.llmProvider === 'claude' || !form.llmProvider) && (
         <PasswordInput
           label="Claude API Key (Anthropic)"
-          value={form.claudeApiKey}
-          onChange={(e) => set('claudeApiKey', e.target.value)}
-          placeholder="sk-ant-..."
+          value={apiKeyFields.claudeApiKey}
+          onChange={(e) => setKey('claudeApiKey', e.target.value)}
+          placeholder={form.claudeApiKey ? 'Key already saved — enter new to replace' : 'sk-ant-…'}
         />
       )}
 
       {form.llmProvider === 'openai' && (
         <PasswordInput
           label="OpenAI API Key"
-          value={form.openaiApiKey}
-          onChange={(e) => set('openaiApiKey', e.target.value)}
-          placeholder="sk-..."
+          value={apiKeyFields.openaiApiKey}
+          onChange={(e) => setKey('openaiApiKey', e.target.value)}
+          placeholder={form.openaiApiKey ? 'Key already saved — enter new to replace' : 'sk-…'}
         />
       )}
 
       {form.llmProvider === 'zai' && (
         <PasswordInput
           label="Z.ai API Key"
-          value={form.zaiApiKey || ''}
-          onChange={(e) => set('zaiApiKey', e.target.value)}
-          placeholder="Your Z.ai API key"
+          value={apiKeyFields.zaiApiKey}
+          onChange={(e) => setKey('zaiApiKey', e.target.value)}
+          placeholder={form.zaiApiKey ? 'Key already saved — enter new to replace' : 'Your Z.ai API key'}
         />
       )}
 
@@ -806,13 +854,13 @@ function SettingsTab() {
             label="Model"
             value={form.customModel || ''}
             onChange={(e) => set('customModel', e.target.value)}
-            placeholder="llama3, gpt-oss:120b-cloud, glm-5.2 …"
+            placeholder="llama3, glm-4.7:cloud, …"
           />
           <PasswordInput
             label="API Key (leave blank if not required)"
-            value={form.customApiKey || ''}
-            onChange={(e) => set('customApiKey', e.target.value)}
-            placeholder="Bearer token or API key"
+            value={apiKeyFields.customApiKey}
+            onChange={(e) => setKey('customApiKey', e.target.value)}
+            placeholder={form.customApiKey ? 'Key already saved — enter new to replace' : 'Bearer token or API key'}
           />
         </>
       )}
@@ -858,10 +906,11 @@ function SettingsTab() {
 
       <PasswordInput
         label="NewsAPI Key (newsapi.org)"
-        value={form.newsApiKey}
-        onChange={(e) => set('newsApiKey', e.target.value)}
-        placeholder="Your NewsAPI key"
+        value={apiKeyFields.newsApiKey}
+        onChange={(e) => setKey('newsApiKey', e.target.value)}
+        placeholder={form.newsApiKey ? 'Key already saved — enter new to replace' : 'Your NewsAPI key'}
       />
+
       <Input
         label="Refresh every X minutes"
         type="number"
@@ -869,6 +918,7 @@ function SettingsTab() {
         value={form.cycleIntervalMinutes}
         onChange={(e) => set('cycleIntervalMinutes', Number(e.target.value))}
       />
+
       <div className="flex flex-col gap-2">
         <label style={{ color: C.muted, fontSize: 12 }}>Screen Size</label>
         <div className="flex items-center gap-3">
@@ -885,12 +935,14 @@ function SettingsTab() {
           )}
         </div>
       </div>
+
       <div className="flex items-center gap-3 pt-2">
         <Btn onClick={handleSave}>Save Settings</Btn>
         {saved && (
           <span className="text-sm font-medium" style={{ color: '#22c55e' }}>Saved ✓</span>
         )}
       </div>
+
       <AndroidSetupGuide />
     </div>
   )
@@ -924,7 +976,6 @@ const ManagePanel = memo(function ManagePanel({ onClose }) {
         className="flex flex-col h-full transition-transform duration-300 ease-out"
         style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)' }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-5 py-4 flex-shrink-0"
           style={{ borderBottom: `1px solid ${C.border}` }}
@@ -940,7 +991,6 @@ const ManagePanel = memo(function ManagePanel({ onClose }) {
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="flex flex-shrink-0" style={{ borderBottom: `1px solid ${C.border}` }}>
           {TABS.map((tab) => (
             <button
@@ -960,7 +1010,6 @@ const ManagePanel = memo(function ManagePanel({ onClose }) {
           ))}
         </div>
 
-        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <TabContent />
         </div>

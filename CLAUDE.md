@@ -10,14 +10,17 @@ The core concept: **the AI is the app**. Every 10 minutes, the AI agent wakes up
 
 ## Tech Stack
 
-| Layer        | Technology                                                            |
-| ------------ | --------------------------------------------------------------------- |
-| App Shell    | React + Vite (PWA)                                                    |
-| Styling      | Tailwind CSS v4                                                       |
-| LLM          | Pluggable — default Claude (claude-sonnet-4-6); switchable via Settings |
-| Data Storage | localStorage (Phase 1)                                                |
-| News / Web   | NewsAPI (newsapi.org)                                                 |
-| Hosting      | Local device or self-hosted                                           |
+| Layer        | Technology                                                                         |
+| ------------ | ---------------------------------------------------------------------------------- |
+| App Shell    | React + Vite (PWA)                                                                 |
+| Styling      | Tailwind CSS v4                                                                    |
+| Backend      | Node.js + Express + Vercel AI SDK (`ai`, `@ai-sdk/anthropic`, `@ai-sdk/openai`)   |
+| LLM          | Pluggable — default Claude (claude-sonnet-4-6); switchable via Settings            |
+| Data Storage | SQLite via `node:sqlite` (built-in Node.js v22+)                                  |
+| Agentic Loop | Vercel AI SDK `generateText` with tool-use (multi-step reasoning)                 |
+| News / Web   | NewsAPI (newsapi.org)                                                              |
+| Weather      | Open-Meteo (free, no API key)                                                     |
+| Hosting      | Local device or self-hosted                                                        |
 
 ---
 
@@ -25,82 +28,109 @@ The core concept: **the AI is the app**. Every 10 minutes, the AI agent wakes up
 
 ```
 desk-bot/
-├── public/
-│   ├── manifest.json          # PWA manifest (fullscreen, dark theme)
-│   └── icons/                 # PWA icons (192, 512)
-├── src/
-│   ├── main.jsx
-│   ├── App.jsx                # Root — mounts DisplayScreen + ManagePanel, wires wake lock
-│   │
-│   ├── agent/
-│   │   ├── agentLoop.js       # Core 10-min agent loop (startLoop / runCycle)
-│   │   ├── contextBuilder.js  # Assembles full context payload for LLM
-│   │   └── newsClient.js      # NewsAPI: fetchFinanceNews + fetchGeneralNews
-│   │
-│   ├── llm/
-│   │   ├── index.js           # LLM provider factory (routes to claude/openai)
-│   │   ├── providers/
-│   │   │   ├── claude.js      # Anthropic Claude provider (default)
-│   │   │   └── openai.js      # OpenAI GPT-4o provider
-│   │   └── prompts/
-│   │       └── deciderPrompt.js  # Master system prompt shared by all providers
-│   │
-│   ├── store/
-│   │   ├── settings.js        # Settings CRUD (llmProvider, apiKeys, cycle interval)
-│   │   ├── portfolio.js       # Holdings & watchlist CRUD
-│   │   ├── reminders.js       # Reminders CRUD + due-time logic
-│   │   ├── events.js          # Events CRUD + getUpcomingEvents(days)
-│   │   ├── tasks.js           # Tasks CRUD (priority, due date, done toggle)
-│   │   └── history.js         # Cycle history — last N shown, no-repeat logic
-│   │
-│   ├── components/
-│   │   ├── DisplayScreen.jsx  # Full-screen display: iframe + status bar + welcome
-│   │   ├── ManagePanel.jsx    # Slide-up admin panel (Portfolio/Reminders/Events/Tasks/Settings tabs)
-│   │   └── FallbackClock.jsx  # Fallback clock shown if agent errors with no cache
-│   │
-│   ├── hooks/
-│   │   ├── useAgentLoop.js    # React hook — drives agentLoop, exposes state + controls
-│   │   └── useWakeLock.js     # Screen Wake Lock API — keeps display always on
-│   │
-│   └── index.css              # Global styles + Tailwind v4 import
+├── backend/                   # Node.js/Express backend (agentic loop + data)
+│   ├── src/
+│   │   ├── index.js           # Express server entry, mounts routes, starts cron
+│   │   ├── agent/
+│   │   │   └── displayAgent.js  # Vercel AI SDK generateText + tools (agentic loop)
+│   │   ├── tools/
+│   │   │   ├── fetchNews.js   # NewsAPI: finance + general news
+│   │   │   ├── getWeather.js  # Open-Meteo weather (free)
+│   │   │   ├── getPortfolio.js
+│   │   │   ├── getReminders.js  # Urgency flags (urgent / soon / later)
+│   │   │   ├── getEvents.js
+│   │   │   └── getTasks.js
+│   │   ├── store/
+│   │   │   └── db.js          # node:sqlite — schema init + CRUD helpers
+│   │   ├── routes/
+│   │   │   ├── agent.js       # POST /api/cycle, GET /api/latest
+│   │   │   ├── portfolio.js
+│   │   │   ├── reminders.js
+│   │   │   ├── events.js
+│   │   │   ├── tasks.js
+│   │   │   └── settings.js
+│   │   └── scheduler.js       # node-cron: fires agent on cycleIntervalMinutes
+│   ├── data/                  # SQLite DB (gitignored)
+│   └── package.json
 │
-├── .env.example               # API key template
+├── frontend/                  # React PWA (Vite + Tailwind v4)
+│   ├── public/
+│   │   ├── manifest.json      # PWA manifest (fullscreen, dark theme)
+│   │   └── icons/             # PWA icons (192, 512)
+│   ├── src/
+│   │   ├── main.jsx
+│   │   ├── App.jsx            # Root — mounts DisplayScreen + ManagePanel, wires wake lock
+│   │   │
+│   │   ├── api/               # HTTP wrappers — frontend talks to backend only
+│   │   │   ├── client.js      # fetch wrapper (baseURL from VITE_API_URL)
+│   │   │   ├── agent.js       # triggerCycle(), getLatestDisplay()
+│   │   │   ├── portfolio.js
+│   │   │   ├── reminders.js
+│   │   │   ├── events.js
+│   │   │   ├── tasks.js
+│   │   │   └── settings.js
+│   │   │
+│   │   ├── components/
+│   │   │   ├── DisplayScreen.jsx  # Full-screen display: iframe + status bar + welcome
+│   │   │   ├── ManagePanel.jsx    # Slide-up admin panel (Portfolio/Reminders/Events/Tasks/Settings tabs)
+│   │   │   └── FallbackClock.jsx  # Fallback clock shown if backend unreachable
+│   │   │
+│   │   ├── hooks/
+│   │   │   ├── useAgentLoop.js    # React hook — drives agentLoop, exposes state + controls
+│   │   │   └── useWakeLock.js     # Screen Wake Lock API — keeps display always on
+│   │   │
+│   │   └── index.css          # Global styles + Tailwind v4 import
+│   │
+│   ├── .env                   # VITE_API_URL (gitignored)
+│   ├── index.html
+│   ├── vite.config.js         # Vite + React + Tailwind v4 + VitePWA
+│   └── package.json
+│
 ├── CLAUDE.md                  # This file
-└── vite.config.js             # Vite + React + Tailwind v4 + VitePWA
+└── README.md
 ```
 
 ---
 
 ## Core Agent Loop
 
-Every 10 minutes (configurable in Settings):
+Every 10 minutes (server-side cron, configurable in Settings):
 
 ```
-1. contextBuilder.js   → Gather: time, screen size, portfolio, reminders,
-                          events, tasks, recent cycle history
-2. newsClient.js       → Fetch finance + general news (if NewsAPI key set)
-3. llm/index.js        → Route to active provider → receive: { decision, contentType, html }
-4. store/history.js    → Log this cycle (what was shown, timestamp)
-5. useAgentLoop.js     → Push HTML to DisplayScreen iframe with crossfade
-6. Sleep → repeat
+Backend (backend/src/agent/displayAgent.js):
+1. node-cron fires → runDisplayAgent()
+2. LLM reasons via Vercel AI SDK generateText with tools:
+   a. get_reminders()  → urgency-flagged reminders (urgent/soon/later)
+   b. get_events()     → today's events, minutesFromNow
+   c. get_tasks()      → pending tasks by priority
+   d. get_portfolio()  → holdings + watchlist
+   e. fetch_news()     → NewsAPI articles for chosen topics
+   f. get_weather()    → Open-Meteo current + 3-day forecast
+   g. render_display() → saves { html, contentType, decision } to SQLite
+3. display_cache.generating = 0 → frontend poll detects completion
+
+Frontend (frontend/src/hooks/useAgentLoop.js):
+1. Mount → GET /api/latest → show cached HTML immediately
+2. POST /api/cycle → poll GET /api/latest every 3s
+3. When generating=false → update iframe with crossfade
+4. Sleep → repeat
 ```
 
-**Priority override**: The context builder flags reminders due in the next 3 hours as `urgentNext3Hours` so the LLM can bump them to top priority.
+**Agentic advantage**: The LLM decides which tools to call based on current time and priority. It won't fetch portfolio data if there's an urgent reminder — it goes straight to `render_display`.
 
 ---
 
 ## LLM Provider Abstraction
 
-The LLM layer is fully swappable via the Settings tab. Each provider implements the same interface:
+The LLM layer is fully swappable via the Settings tab. Provider routing lives in `backend/src/agent/displayAgent.js`:
 
 ```js
-// src/llm/providers/{claude,openai}.js
-async function generate(context, newsArticles, apiKey, signal) {
-  // returns: { decision: string, contentType: string, html: string }
-}
+// buildModel(settings) — routes to Vercel AI SDK provider
+claude  → createAnthropic({ apiKey })('claude-sonnet-4-6')
+openai  → createOpenAI({ apiKey })('gpt-4o')
+zai     → createOpenAI({ baseURL: 'https://api.z.ai/...', apiKey })('glm-4.7:cloud')
+custom  → createOpenAI({ baseURL, apiKey })(customModel)   // Ollama, etc.
 ```
-
-`src/llm/index.js` is the factory — it reads `settings.llmProvider` and routes to the right provider. Adding a new LLM = one file in `providers/` + one line in `index.js`.
 
 Default provider: **Claude** (`claude-sonnet-4-6`). Switch to OpenAI in the Settings tab.
 
@@ -108,7 +138,7 @@ Default provider: **Claude** (`claude-sonnet-4-6`). Switch to OpenAI in the Sett
 
 ## Master Decider Prompt
 
-Shared by all providers in `src/llm/prompts/deciderPrompt.js`.
+Lives in `backend/src/agent/displayAgent.js` (SYSTEM_PROMPT constant).
 
 ### Priority order (highest to lowest)
 
@@ -227,42 +257,67 @@ AMBIENT   → Motivational/informational + time
 
 ---
 
-## Environment Variables (`.env`)
+## Environment Variables
 
+**Frontend** (`frontend/.env`):
 ```
-VITE_LLM_API_KEY=        # Not used — keys are stored in localStorage via Settings tab
-VITE_NEWS_API_KEY=        # Not used — same
+VITE_API_URL=http://localhost:3001   # Backend URL
 ```
 
-Keys are entered in the admin panel (Settings tab) and persisted to localStorage. No server-side env vars needed in Phase 1.
+**Backend** (`backend/.env`):
+```
+PORT=3001
+FRONTEND_URL=http://localhost:5173
+# API keys are stored in SQLite via Settings tab — env vars optional (override for CI/Docker)
+ANTHROPIC_API_KEY=
+OPENAI_API_KEY=
+NEWS_API_KEY=
+```
 
 ---
 
 ## Development Commands
 
 ```bash
+# Frontend (React PWA)
+cd frontend
 npm install
-npm run dev       # Local dev server
+npm run dev       # Vite dev server on :5173
 npm run build     # Production PWA build
-npm run preview   # Preview production build
 npm run lint      # ESLint
+
+# Backend (Node.js)
+cd backend
+npm install
+npm run dev       # node --watch on :3001
+npm start         # Production start
 ```
+
+Both must run simultaneously. Backend serves API + runs agent; frontend serves the PWA shell.
 
 ---
 
 ## Phase Plan
 
-### Phase 1 — Self-Contained (Current)
+### Phase 1 — Self-Contained
 
 - [x] PWA shell with wake lock
 - [x] Admin panel (portfolio, reminders, events, tasks, settings)
 - [x] Agent loop (10-min cycle + cache + crossfade)
 - [x] Pluggable LLM layer (Claude default, OpenAI switchable)
-- [x] Context builder (time, portfolio, reminders, events, tasks, history)
 - [x] Decider prompt + HTML injection via iframe
 - [x] News from NewsAPI (finance + general)
 - [x] Cycle history (no-repeat logic)
 - [x] Settings page (switch LLM provider, API keys, screen size)
+
+### Phase 1.5 — Backend + Agentic (Current)
+
+- [x] Node.js/Express backend with SQLite persistence
+- [x] Vercel AI SDK agentic loop (multi-step tool-use)
+- [x] Server-side scheduling (node-cron replaces client setInterval)
+- [x] API keys stored server-side (no longer in browser localStorage)
+- [x] Frontend polls backend for display updates
+- [x] Weather tool (Open-Meteo, free, no key)
 
 ### Phase 2 — External Integrations (Later)
 
@@ -278,8 +333,10 @@ npm run lint      # ESLint
 ## Key Decisions
 
 - **AI generates raw HTML** → pre-built components later (Phase 2)
-- **No backend** in Phase 1 — everything runs client-side in the PWA
-- **LLM is pluggable** — never hardcode a provider except in `llm/providers/`
+- **Backend required** — Express + SQLite; API keys live server-side for security
+- **Agentic tool-use** — LLM calls tools iteratively rather than receiving a giant context dump
+- **Vercel AI SDK** — provider-agnostic; supports Claude, OpenAI, and any OpenAI-compatible endpoint
+- **LLM is pluggable** — never hardcode a provider except in `backend/src/agent/displayAgent.js`
 - **Dark theme** — user prefers data-dense dark UI
 - **Single device** — Android mobile/tablet, portrait or landscape
 - **Claude as default** — matches the CLAUDE.md spec; OpenAI available as a fallback

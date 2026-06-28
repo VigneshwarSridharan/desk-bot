@@ -70,7 +70,7 @@ function buildModel(settings) {
   }
 
   if (provider === 'zai') {
-    const apiKey = settings.zaiApiKey;
+    const apiKey = process.env.ZAI_API_KEY || settings.zaiApiKey;
     if (!apiKey) throw new Error('No Z.ai API key configured');
     return createOpenAI({ baseURL: 'https://api.z.ai/api/paas/v4', apiKey })('glm-4.7:cloud');
   }

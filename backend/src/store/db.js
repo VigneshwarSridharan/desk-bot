@@ -78,19 +78,19 @@ if (!cacheRow) {
   db.prepare('INSERT INTO display_cache (id) VALUES (1)').run();
 }
 
-// Seed default settings
+// Seed default settings — env vars win on first start (INSERT OR IGNORE skips on subsequent starts)
 const defaults = {
-  llmProvider: 'claude',
-  claudeApiKey: '',
-  openaiApiKey: '',
-  zaiApiKey: '',
-  customApiKey: '',
-  customBaseUrl: '',
-  customModel: '',
-  newsApiKey: '',
-  weatherLat: '',
-  weatherLon: '',
-  weatherCity: '',
+  llmProvider: process.env.LLM_PROVIDER || 'claude',
+  claudeApiKey: process.env.ANTHROPIC_API_KEY || '',
+  openaiApiKey: process.env.OPENAI_API_KEY || '',
+  zaiApiKey: process.env.ZAI_API_KEY || '',
+  customApiKey: process.env.CUSTOM_API_KEY || '',
+  customBaseUrl: process.env.CUSTOM_BASE_URL || '',
+  customModel: process.env.CUSTOM_MODEL || '',
+  newsApiKey: process.env.NEWS_API_KEY || '',
+  weatherLat: process.env.WEATHER_LAT || '',
+  weatherLon: process.env.WEATHER_LON || '',
+  weatherCity: process.env.WEATHER_CITY || '',
   cycleIntervalMinutes: '10',
   screenWidth: '412',
   screenHeight: '892',

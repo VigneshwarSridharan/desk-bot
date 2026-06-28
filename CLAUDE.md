@@ -53,36 +53,41 @@ desk-bot/
 │   ├── data/                  # SQLite DB (gitignored)
 │   └── package.json
 │
-├── public/
-│   ├── manifest.json          # PWA manifest (fullscreen, dark theme)
-│   └── icons/                 # PWA icons (192, 512)
-├── src/
-│   ├── main.jsx
-│   ├── App.jsx                # Root — mounts DisplayScreen + ManagePanel, wires wake lock
+├── frontend/                  # React PWA (Vite + Tailwind v4)
+│   ├── public/
+│   │   ├── manifest.json      # PWA manifest (fullscreen, dark theme)
+│   │   └── icons/             # PWA icons (192, 512)
+│   ├── src/
+│   │   ├── main.jsx
+│   │   ├── App.jsx            # Root — mounts DisplayScreen + ManagePanel, wires wake lock
+│   │   │
+│   │   ├── api/               # HTTP wrappers — frontend talks to backend only
+│   │   │   ├── client.js      # fetch wrapper (baseURL from VITE_API_URL)
+│   │   │   ├── agent.js       # triggerCycle(), getLatestDisplay()
+│   │   │   ├── portfolio.js
+│   │   │   ├── reminders.js
+│   │   │   ├── events.js
+│   │   │   ├── tasks.js
+│   │   │   └── settings.js
+│   │   │
+│   │   ├── components/
+│   │   │   ├── DisplayScreen.jsx  # Full-screen display: iframe + status bar + welcome
+│   │   │   ├── ManagePanel.jsx    # Slide-up admin panel (Portfolio/Reminders/Events/Tasks/Settings tabs)
+│   │   │   └── FallbackClock.jsx  # Fallback clock shown if backend unreachable
+│   │   │
+│   │   ├── hooks/
+│   │   │   ├── useAgentLoop.js    # React hook — drives agentLoop, exposes state + controls
+│   │   │   └── useWakeLock.js     # Screen Wake Lock API — keeps display always on
+│   │   │
+│   │   └── index.css          # Global styles + Tailwind v4 import
 │   │
-│   ├── api/                   # HTTP wrappers — frontend talks to backend only
-│   │   ├── client.js          # fetch wrapper (baseURL from VITE_API_URL)
-│   │   ├── agent.js           # triggerCycle(), getLatestDisplay()
-│   │   ├── portfolio.js
-│   │   ├── reminders.js
-│   │   ├── events.js
-│   │   ├── tasks.js
-│   │   └── settings.js
-│   │
-│   ├── components/
-│   │   ├── DisplayScreen.jsx  # Full-screen display: iframe + status bar + welcome
-│   │   ├── ManagePanel.jsx    # Slide-up admin panel (Portfolio/Reminders/Events/Tasks/Settings tabs)
-│   │   └── FallbackClock.jsx  # Fallback clock shown if backend unreachable
-│   │
-│   ├── hooks/
-│   │   ├── useAgentLoop.js    # React hook — drives agentLoop, exposes state + controls
-│   │   └── useWakeLock.js     # Screen Wake Lock API — keeps display always on
-│   │
-│   └── index.css              # Global styles + Tailwind v4 import
+│   ├── .env                   # VITE_API_URL (gitignored)
+│   ├── index.html
+│   ├── vite.config.js         # Vite + React + Tailwind v4 + VitePWA
+│   └── package.json
 │
-├── .env.example               # API key template
 ├── CLAUDE.md                  # This file
-└── vite.config.js             # Vite + React + Tailwind v4 + VitePWA
+└── README.md
 ```
 
 ---
@@ -104,7 +109,7 @@ Backend (backend/src/agent/displayAgent.js):
    g. render_display() → saves { html, contentType, decision } to SQLite
 3. display_cache.generating = 0 → frontend poll detects completion
 
-Frontend (src/hooks/useAgentLoop.js):
+Frontend (frontend/src/hooks/useAgentLoop.js):
 1. Mount → GET /api/latest → show cached HTML immediately
 2. POST /api/cycle → poll GET /api/latest every 3s
 3. When generating=false → update iframe with crossfade
@@ -254,7 +259,7 @@ AMBIENT   → Motivational/informational + time
 
 ## Environment Variables
 
-**Frontend** (`src/.env`):
+**Frontend** (`frontend/.env`):
 ```
 VITE_API_URL=http://localhost:3001   # Backend URL
 ```
@@ -275,6 +280,7 @@ NEWS_API_KEY=
 
 ```bash
 # Frontend (React PWA)
+cd frontend
 npm install
 npm run dev       # Vite dev server on :5173
 npm run build     # Production PWA build

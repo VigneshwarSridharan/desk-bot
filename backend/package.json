@@ -7,9 +7,10 @@
     "start": "node src/index.js"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^1.0.0",
-    "@ai-sdk/openai": "^1.0.0",
-    "ai": "^4.0.0",
+    "@ai-sdk/anthropic": "^4.0.1",
+    "@ai-sdk/devtools": "^1.0.0",
+    "@ai-sdk/openai": "^4.0.2",
+    "ai": "^7.0.4",
     "axios": "^1.7.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",

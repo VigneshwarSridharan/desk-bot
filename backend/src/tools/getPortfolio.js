@@ -4,7 +4,7 @@ import { getPortfolio } from '../store/db.js';
 
 export const getPortfolioTool = tool({
   description: "Get the user's stock portfolio — holdings (with quantity and average price) and watchlist symbols.",
-  parameters: z.object({}),
+  inputSchema: z.object({}),
   execute: async () => {
     const portfolio = getPortfolio();
     return {

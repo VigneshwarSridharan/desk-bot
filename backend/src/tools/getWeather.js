@@ -63,6 +63,6 @@ function getWeatherDescription(code) {
 
 export const getWeatherTool = tool({
   description: 'Get current weather and 3-day forecast for the configured location. No parameters needed — location comes from user settings.',
-  parameters: z.object({}),
+  inputSchema: z.object({}),
   execute: async () => doGetWeather(),
 });

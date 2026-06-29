@@ -4,7 +4,7 @@ import { getUpcomingEvents } from '../store/db.js';
 
 export const getEventsTool = tool({
   description: "Get the user's upcoming calendar events and appointments for the next 7 days.",
-  parameters: z.object({
+  inputSchema: z.object({
     days: z.number().int().min(1).max(30).default(7).describe('Number of days ahead to look'),
   }),
   execute: async ({ days }) => {

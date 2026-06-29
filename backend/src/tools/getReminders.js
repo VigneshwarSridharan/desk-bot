@@ -18,7 +18,7 @@ function minutesFromTimeStr(timeStr) {
 
 export const getRemindersTool = tool({
   description: "Get the user's reminders for today, with urgency flags for reminders due soon.",
-  parameters: z.object({}),
+  inputSchema: z.object({}),
   execute: async () => {
     const reminders = getReminders();
     const now = new Date();

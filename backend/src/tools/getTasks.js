@@ -4,7 +4,7 @@ import { getTasks } from '../store/db.js';
 
 export const getTasksTool = tool({
   description: "Get the user's pending tasks, sorted by priority. Includes overdue flags.",
-  parameters: z.object({}),
+  inputSchema: z.object({}),
   execute: async () => {
     const tasks = getTasks();
     const today = new Date().toISOString().slice(0, 10);

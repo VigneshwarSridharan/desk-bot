@@ -269,12 +269,15 @@ function DisplayContent({ loop, onOpenManage }) {
 const DisplayScreen = memo(function DisplayScreen({ onOpenManage, loop }) {
   const [hasKeys, setHasKeys] = useState(false)
 
-  // Check on mount and poll every 2s while on welcome screen
+  // Check on mount and poll every 2s until keys are found (welcome screen only)
   useEffect(() => {
     checkHasRequiredKeys().then(setHasKeys)
     const t = setInterval(async () => {
       const ok = await checkHasRequiredKeys()
-      if (ok) setHasKeys(true)
+      if (ok) {
+        setHasKeys(true)
+        clearInterval(t)
+      }
     }, 2000)
     return () => clearInterval(t)
   }, [])

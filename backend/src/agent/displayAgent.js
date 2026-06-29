@@ -1,14 +1,20 @@
-import { generateText, tool } from 'ai';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createOpenAI } from '@ai-sdk/openai';
-import { z } from 'zod';
-import { getAllSettings, setGenerating, saveDisplay, addToHistory, getHistory } from '../store/db.js';
-import { fetchNewsTool } from '../tools/fetchNews.js';
-import { getWeatherTool } from '../tools/getWeather.js';
-import { getPortfolioTool } from '../tools/getPortfolio.js';
-import { getRemindersTool } from '../tools/getReminders.js';
-import { getEventsTool } from '../tools/getEvents.js';
-import { getTasksTool } from '../tools/getTasks.js';
+import { generateText, tool, stepCountIs } from "ai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createOpenAI } from "@ai-sdk/openai";
+import { z } from "zod";
+import {
+  getAllSettings,
+  setGenerating,
+  saveDisplay,
+  addToHistory,
+  getHistory,
+} from "../store/db.js";
+import { fetchNewsTool } from "../tools/fetchNews.js";
+import { getWeatherTool } from "../tools/getWeather.js";
+import { getPortfolioTool } from "../tools/getPortfolio.js";
+import { getRemindersTool } from "../tools/getReminders.js";
+import { getEventsTool } from "../tools/getEvents.js";
+import { getTasksTool } from "../tools/getTasks.js";
 
 const SYSTEM_PROMPT = `You are the brain of a personal desk bot — an always-on ambient display on a dedicated Android device on the user's desk in India. You run every 10 minutes and decide what to show.
 
@@ -54,44 +60,67 @@ HTML GENERATION RULES:
 - For tasks: show priority tasks clearly, use color to indicate urgency
 - For weather: show temperature large (48px+), description, feels-like, humidity, wind speed; 3-day forecast row at bottom`;
 
-function buildModel(settings) {
-  const provider = settings.llmProvider || 'claude';
+function buildBaseModel(settings) {
+  const provider = process.env.LLM_PROVIDER || settings.llmProvider || "claude";
 
-  if (provider === 'claude') {
+  if (provider === "claude") {
     const apiKey = process.env.ANTHROPIC_API_KEY || settings.claudeApiKey;
-    if (!apiKey) throw new Error('No Claude API key configured');
-    return createAnthropic({ apiKey })('claude-sonnet-4-6');
+    if (!apiKey) throw new Error("No Claude API key configured");
+    return createAnthropic({ apiKey })("claude-sonnet-4-6");
   }
 
-  if (provider === 'openai') {
+  if (provider === "openai") {
     const apiKey = process.env.OPENAI_API_KEY || settings.openaiApiKey;
-    if (!apiKey) throw new Error('No OpenAI API key configured');
-    return createOpenAI({ apiKey })('gpt-4o');
+    if (!apiKey) throw new Error("No OpenAI API key configured");
+    return createOpenAI({ apiKey }).chat("gpt-4o");
   }
 
-  if (provider === 'zai') {
+  if (provider === "zai") {
     const apiKey = process.env.ZAI_API_KEY || settings.zaiApiKey;
-    if (!apiKey) throw new Error('No Z.ai API key configured');
-    return createOpenAI({ baseURL: 'https://api.z.ai/api/paas/v4', apiKey })('glm-4.7:cloud');
+    if (!apiKey) throw new Error("No Z.ai API key configured");
+    return createOpenAI({ baseURL: "https://api.z.ai/api/paas/v4", apiKey }).chat(
+      "glm-4.5-flash",
+    );
   }
 
   // custom / ollama — any OpenAI-compatible endpoint
-  const baseURL = settings.customBaseUrl || 'http://localhost:11434/v1';
-  const apiKey = settings.customApiKey || 'ollama';
-  const modelId = settings.customModel || 'llama3';
-  return createOpenAI({ baseURL, apiKey })( modelId);
+  // Use .chat() to force the Chat Completions API (/chat/completions) instead
+  // of the Responses API (/responses) that @ai-sdk/openai v4 uses by default.
+  const baseURL =
+    process.env.CUSTOM_BASE_URL ||
+    settings.customBaseUrl ||
+    "http://localhost:11434/v1";
+  const apiKey =
+    process.env.CUSTOM_API_KEY || settings.customApiKey || "ollama";
+  const modelId = process.env.CUSTOM_MODEL || settings.customModel || "llama3";
+  return createOpenAI({ baseURL, apiKey }).chat(modelId);
+}
+
+function buildModel(settings) {
+  return buildBaseModel(settings);
 }
 
 function buildInitialPrompt(settings) {
   const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-  const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const history = getHistory().slice(0, 3).map((h) => `${h.type}: ${h.summary}`);
+  const timeStr = now.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+  const dateStr = now.toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const history = getHistory()
+    .slice(0, 3)
+    .map((h) => `${h.type}: ${h.summary}`);
 
   return `Current time: ${timeStr}
 Current date: ${dateStr}
 Screen: ${settings.screenWidth || 412}×${settings.screenHeight || 892}px
-Recent display history (avoid repeating): ${history.length ? history.join('; ') : 'none'}
+Recent display history (avoid repeating): ${history.length ? history.join("; ") : "none"}
 
 Start by checking reminders and events for urgency, then decide what to show and call render_display.`;
 }
@@ -100,24 +129,42 @@ let isRunning = false;
 
 export async function runDisplayAgent() {
   if (isRunning) {
-    console.log('[agent] Cycle already in progress, skipping');
+    console.log("[agent] Cycle already in progress, skipping");
     return;
   }
 
   isRunning = true;
   setGenerating(true);
-  console.log('[agent] Starting display cycle');
+  console.log("[agent] Starting display cycle");
 
   try {
     const settings = getAllSettings();
     const model = buildModel(settings);
 
     const renderDisplayTool = tool({
-      description: 'Render the final display. Call this as your LAST action with the complete HTML document and metadata.',
-      parameters: z.object({
-        html: z.string().describe('Complete self-contained HTML document from <!DOCTYPE html> to </html>'),
-        contentType: z.enum(['reminder', 'event', 'task', 'weather', 'portfolio', 'market_news', 'general_news', 'ambient']),
-        decision: z.string().describe('1-2 sentence explanation of what you chose to show and why'),
+      description:
+        "Render the final display. Call this as your LAST action with the complete HTML document and metadata.",
+      inputSchema: z.object({
+        html: z
+          .string()
+          .describe(
+            "Complete self-contained HTML document from <!DOCTYPE html> to </html>",
+          ),
+        contentType: z.enum([
+          "reminder",
+          "event",
+          "task",
+          "weather",
+          "portfolio",
+          "market_news",
+          "general_news",
+          "ambient",
+        ]),
+        decision: z
+          .string()
+          .describe(
+            "1-2 sentence explanation of what you chose to show and why",
+          ),
       }),
       execute: async ({ html, contentType, decision }) => {
         saveDisplay({ html, contentType, decision });
@@ -131,7 +178,7 @@ export async function runDisplayAgent() {
       model,
       system: SYSTEM_PROMPT,
       prompt: buildInitialPrompt(settings),
-      maxSteps: 10,
+      stopWhen: stepCountIs(10),
       tools: {
         get_reminders: getRemindersTool,
         get_events: getEventsTool,
@@ -145,13 +192,15 @@ export async function runDisplayAgent() {
 
     // Safety check — if model never called render_display, log warning
     const allToolCalls = result.steps.flatMap((s) => s.toolCalls || []);
-    const rendered = allToolCalls.some((c) => c.toolName === 'render_display');
+    const rendered = allToolCalls.some((c) => c.toolName === "render_display");
     if (!rendered) {
-      console.warn('[agent] render_display was never called — max steps reached without output');
+      console.warn(
+        "[agent] render_display was never called — max steps reached without output",
+      );
       setGenerating(false);
     }
   } catch (err) {
-    console.error('[agent] Cycle failed:', err.message);
+    console.error("[agent] Cycle failed:", err.message);
     setGenerating(false);
     throw err;
   } finally {

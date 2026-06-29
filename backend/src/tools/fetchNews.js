@@ -37,7 +37,7 @@ async function doFetchNews(topics) {
 
 export const fetchNewsTool = tool({
   description: 'Fetch recent news articles for given topics. Use topics like stock symbols, company names, or themes (e.g. "RELIANCE NSE", "AI artificial intelligence", "India economy").',
-  parameters: z.object({
+  inputSchema: z.object({
     topics: z.array(z.string()).min(1).max(5).describe('List of search topics or keywords'),
   }),
   execute: async ({ topics }) => doFetchNews(topics),

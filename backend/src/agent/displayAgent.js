@@ -125,6 +125,28 @@ Recent display history (avoid repeating): ${history.length ? history.join("; ") 
 Start by checking reminders and events for urgency, then decide what to show and call render_display.`;
 }
 
+async function withRateLimitRetry(fn, maxAttempts = 4) {
+  const delays = [15_000, 30_000, 60_000]; // ms between attempts on 429
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const is429 =
+        err?.statusCode === 429 ||
+        err?.status === 429 ||
+        err?.message?.includes("Too Many Requests") ||
+        err?.message?.includes("rate limit");
+      if (is429 && attempt < maxAttempts) {
+        const wait = delays[attempt - 1] ?? 60_000;
+        console.warn(`[agent] Rate limited (attempt ${attempt}/${maxAttempts}), retrying in ${wait / 1000}s…`);
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 let isRunning = false;
 
 export async function runDisplayAgent() {
@@ -174,8 +196,9 @@ export async function runDisplayAgent() {
       },
     });
 
-    const result = await generateText({
+    const result = await withRateLimitRetry(() => generateText({
       model,
+      maxRetries: 0,
       system: SYSTEM_PROMPT,
       prompt: buildInitialPrompt(settings),
       stopWhen: stepCountIs(10),
@@ -188,7 +211,7 @@ export async function runDisplayAgent() {
         fetch_news: fetchNewsTool,
         render_display: renderDisplayTool,
       },
-    });
+    }));
 
     // Safety check — if model never called render_display, log warning
     const allToolCalls = result.steps.flatMap((s) => s.toolCalls || []);

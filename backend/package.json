@@ -4,11 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "devtools": "npx @ai-sdk/devtools"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.1",
     "@ai-sdk/devtools": "^1.0.0",
+    "@ai-sdk/google": "^4.0.3",
     "@ai-sdk/openai": "^4.0.2",
     "ai": "^7.0.4",
     "axios": "^1.7.0",

@@ -1,49 +1,5 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
-import { getSettings } from '../api/settings.js'
 import FallbackClock from './FallbackClock'
-
-async function checkHasRequiredKeys() {
-  try {
-    const s = await getSettings()
-    const provider = s.llmProvider || 'claude'
-    if (provider === 'claude') return !!s.claudeApiKey
-    if (provider === 'openai') return !!s.openaiApiKey
-    if (provider === 'zai') return !!s.zaiApiKey
-    return !!(s.customBaseUrl) // custom/ollama — URL is enough
-  } catch {
-    return false
-  }
-}
-
-// ─── Welcome Screen ──────────────────────────────────────────────────────────
-
-function WelcomeScreen({ onOpenManage }) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: '#000',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: 24,
-    }}>
-      <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 700, margin: 0 }}>
-        Welcome to Desk Bot
-      </h1>
-      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 16, marginTop: 12, textAlign: 'center', maxWidth: 320 }}>
-        Open settings to add your API key and get started.
-      </p>
-      <button
-        onClick={onOpenManage}
-        style={{
-          marginTop: 32, padding: '12px 28px',
-          background: '#3b82f6', color: '#fff',
-          border: 'none', borderRadius: 8, fontSize: 16, cursor: 'pointer',
-          boxShadow: '0 0 20px rgba(59,130,246,0.5), 0 0 40px rgba(59,130,246,0.2)',
-        }}
-      >
-        Open Settings
-      </button>
-    </div>
-  )
-}
 
 // ─── Status Bar ──────────────────────────────────────────────────────────────
 
@@ -264,28 +220,9 @@ function DisplayContent({ loop, onOpenManage }) {
   )
 }
 
-// ─── Display Screen (root, checks API key before starting loop) ───────────────
+// ─── Display Screen (root) ───────────────────────────────────────────────────
 
 const DisplayScreen = memo(function DisplayScreen({ onOpenManage, loop }) {
-  const [hasKeys, setHasKeys] = useState(false)
-
-  // Check on mount and poll every 2s until keys are found (welcome screen only)
-  useEffect(() => {
-    checkHasRequiredKeys().then(setHasKeys)
-    const t = setInterval(async () => {
-      const ok = await checkHasRequiredKeys()
-      if (ok) {
-        setHasKeys(true)
-        clearInterval(t)
-      }
-    }, 2000)
-    return () => clearInterval(t)
-  }, [])
-
-  if (!hasKeys) {
-    return <WelcomeScreen onOpenManage={onOpenManage} />
-  }
-
   return <DisplayContent loop={loop} onOpenManage={onOpenManage} />
 })
 

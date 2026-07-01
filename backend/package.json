@@ -12,6 +12,7 @@
     "@ai-sdk/devtools": "^1.0.0",
     "@ai-sdk/google": "^4.0.3",
     "@ai-sdk/openai": "^4.0.2",
+    "@openrouter/ai-sdk-provider": "^2.10.0",
     "ai": "^7.0.4",
     "axios": "^1.7.0",
     "cors": "^2.8.5",

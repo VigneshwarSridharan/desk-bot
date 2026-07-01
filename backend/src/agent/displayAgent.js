@@ -1,5 +1,3 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createOpenAI } from "@ai-sdk/openai";
 import {
   getAllSettings,
   setGenerating,
@@ -7,46 +5,9 @@ import {
   addToHistory,
   getHistory,
 } from "../store/db.js";
+import { getModelForRole } from "./modelProvider.js";
 import { runContextAgent } from "./contextAgent.js";
 import { runRenderAgent } from "./renderAgent.js";
-
-function buildBaseModel(settings) {
-  const provider = process.env.LLM_PROVIDER || settings.llmProvider || "claude";
-
-  if (provider === "claude") {
-    const apiKey = process.env.ANTHROPIC_API_KEY || settings.claudeApiKey;
-    if (!apiKey) throw new Error("No Claude API key configured");
-    return createAnthropic({ apiKey })("claude-sonnet-4-6");
-  }
-
-  if (provider === "openai") {
-    const apiKey = process.env.OPENAI_API_KEY || settings.openaiApiKey;
-    if (!apiKey) throw new Error("No OpenAI API key configured");
-    return createOpenAI({ apiKey }).chat("gpt-4o");
-  }
-
-  if (provider === "zai") {
-    const apiKey = process.env.ZAI_API_KEY || settings.zaiApiKey;
-    if (!apiKey) throw new Error("No Z.ai API key configured");
-    return createOpenAI({ baseURL: "https://api.z.ai/api/paas/v4", apiKey }).chat(
-      "glm-4.5-flash",
-    );
-  }
-
-  // custom / ollama — any OpenAI-compatible endpoint
-  const baseURL =
-    process.env.CUSTOM_BASE_URL ||
-    settings.customBaseUrl ||
-    "http://localhost:11434/v1";
-  const apiKey =
-    process.env.CUSTOM_API_KEY || settings.customApiKey || "ollama";
-  const modelId = process.env.CUSTOM_MODEL || settings.customModel || "llama3";
-  return createOpenAI({ baseURL, apiKey }).chat(modelId);
-}
-
-function buildModel(settings) {
-  return buildBaseModel(settings);
-}
 
 function buildInitialPrompt(settings) {
   const now = new Date();
@@ -109,13 +70,13 @@ export async function runDisplayAgent() {
 
   try {
     const settings = getAllSettings();
-    const model = buildModel(settings);
     const initialPrompt = buildInitialPrompt(settings);
 
     // Phase 1: Context Agent — gather data and decide content type
     console.log("[agent] Running context agent");
+    const contextModel = getModelForRole("context");
     const contextResult = await withRateLimitRetry(() =>
-      runContextAgent(model, initialPrompt)
+      runContextAgent(contextModel, initialPrompt)
     );
 
     if (!contextResult) {
@@ -129,8 +90,9 @@ export async function runDisplayAgent() {
 
     // Phase 2: Render Agent — generate full-screen HTML from context
     console.log("[agent] Running render agent");
+    const renderModel = getModelForRole("render");
     const html = await withRateLimitRetry(() =>
-      runRenderAgent(model, contextResult, settings)
+      runRenderAgent(renderModel, contextResult, settings)
     );
 
     // Persist result

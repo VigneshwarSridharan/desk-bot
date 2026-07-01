@@ -11,7 +11,7 @@ import {
 import {
   getTasks, addTask, removeTask, toggleTask,
 } from '../api/tasks.js'
-import { getSettings, saveSettings, saveApiKey } from '../api/settings.js'
+import { getSettings, saveSettings } from '../api/settings.js'
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
@@ -689,37 +689,8 @@ function TasksTab() {
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS = {
-  llmProvider: 'claude', claudeApiKey: '', openaiApiKey: '', zaiApiKey: '',
-  customApiKey: '', customBaseUrl: '', customModel: '', newsApiKey: '',
   weatherLat: '', weatherLon: '', weatherCity: '', cycleIntervalMinutes: 10,
   screenWidth: 412, screenHeight: 892,
-}
-
-function PasswordInput({ label, value, onChange, placeholder }) {
-  const [show, setShow] = useState(false)
-  return (
-    <div className="flex flex-col gap-1">
-      <label style={{ color: C.muted, fontSize: 12 }}>{label}</label>
-      <div className="flex items-center rounded-lg overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
-        <input
-          type={show ? 'text' : 'password'}
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          className="flex-1 px-3 py-2 text-sm outline-none"
-          style={{ backgroundColor: '#111', color: C.text, border: 'none' }}
-        />
-        <button
-          onClick={() => setShow((s) => !s)}
-          className="px-3 text-xs"
-          style={{ backgroundColor: '#111', color: C.muted, border: 'none', cursor: 'pointer', height: '100%' }}
-          type="button"
-        >
-          {show ? 'Hide' : 'Show'}
-        </button>
-      </div>
-    </div>
-  )
 }
 
 const ANDROID_STEPS = [
@@ -763,20 +734,15 @@ function SettingsTab() {
   const [saved, setSaved] = useState(false)
   const [detectedSize, setDetectedSize] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [apiKeyFields, setApiKeyFields] = useState({
-    claudeApiKey: '', openaiApiKey: '', zaiApiKey: '', customApiKey: '', newsApiKey: '',
-  })
 
   useEffect(() => {
     getSettings().then((s) => {
-      // Backend sends '••••••••' for keys that are set — keep local fields blank
       setForm(s)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const setKey = (k, v) => setApiKeyFields((f) => ({ ...f, [k]: v }))
 
   function detectScreen() {
     const w = window.innerWidth
@@ -786,16 +752,7 @@ function SettingsTab() {
   }
 
   async function handleSave() {
-    // Save non-key settings
     await saveSettings(form)
-
-    // Save any API keys that were entered (non-empty, non-placeholder)
-    for (const [key, value] of Object.entries(apiKeyFields)) {
-      if (value && value !== '••••••••') {
-        await saveApiKey(key, value)
-      }
-    }
-
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -804,67 +761,6 @@ function SettingsTab() {
 
   return (
     <div className="flex flex-col gap-5 max-w-lg">
-      <Select
-        label="LLM Provider"
-        value={form.llmProvider || 'claude'}
-        onChange={(e) => set('llmProvider', e.target.value)}
-      >
-        <option value="claude">Claude (Anthropic) — default</option>
-        <option value="openai">OpenAI (GPT-4o)</option>
-        <option value="zai">Z.ai (GLM)</option>
-        <option value="custom">Custom / Ollama (any OpenAI-compatible)</option>
-      </Select>
-
-      {(form.llmProvider === 'claude' || !form.llmProvider) && (
-        <PasswordInput
-          label="Claude API Key (Anthropic)"
-          value={apiKeyFields.claudeApiKey}
-          onChange={(e) => setKey('claudeApiKey', e.target.value)}
-          placeholder={form.claudeApiKey ? 'Key already saved — enter new to replace' : 'sk-ant-…'}
-        />
-      )}
-
-      {form.llmProvider === 'openai' && (
-        <PasswordInput
-          label="OpenAI API Key"
-          value={apiKeyFields.openaiApiKey}
-          onChange={(e) => setKey('openaiApiKey', e.target.value)}
-          placeholder={form.openaiApiKey ? 'Key already saved — enter new to replace' : 'sk-…'}
-        />
-      )}
-
-      {form.llmProvider === 'zai' && (
-        <PasswordInput
-          label="Z.ai API Key"
-          value={apiKeyFields.zaiApiKey}
-          onChange={(e) => setKey('zaiApiKey', e.target.value)}
-          placeholder={form.zaiApiKey ? 'Key already saved — enter new to replace' : 'Your Z.ai API key'}
-        />
-      )}
-
-      {(form.llmProvider === 'custom' || form.llmProvider === 'ollama') && (
-        <>
-          <Input
-            label="Base URL"
-            value={form.customBaseUrl || ''}
-            onChange={(e) => set('customBaseUrl', e.target.value)}
-            placeholder="http://localhost:11434/v1"
-          />
-          <Input
-            label="Model"
-            value={form.customModel || ''}
-            onChange={(e) => set('customModel', e.target.value)}
-            placeholder="llama3, glm-4.7:cloud, …"
-          />
-          <PasswordInput
-            label="API Key (leave blank if not required)"
-            value={apiKeyFields.customApiKey}
-            onChange={(e) => setKey('customApiKey', e.target.value)}
-            placeholder={form.customApiKey ? 'Key already saved — enter new to replace' : 'Bearer token or API key'}
-          />
-        </>
-      )}
-
       <div className="flex flex-col gap-3">
         <label style={{ color: C.muted, fontSize: 12 }}>Weather Location (Open-Meteo — free, no key needed)</label>
         <Input
@@ -903,13 +799,6 @@ function SettingsTab() {
           </a>
         </span>
       </div>
-
-      <PasswordInput
-        label="NewsAPI Key (newsapi.org)"
-        value={apiKeyFields.newsApiKey}
-        onChange={(e) => setKey('newsApiKey', e.target.value)}
-        placeholder={form.newsApiKey ? 'Key already saved — enter new to replace' : 'Your NewsAPI key'}
-      />
 
       <Input
         label="Refresh every X minutes"

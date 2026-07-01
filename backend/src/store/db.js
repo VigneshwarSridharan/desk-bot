@@ -78,16 +78,14 @@ if (!cacheRow) {
   db.prepare('INSERT INTO display_cache (id) VALUES (1)').run();
 }
 
+// Clean up old credential keys from pre-refactor installs (they move to .env only)
+db.exec(`DELETE FROM settings WHERE key IN (
+  'llmProvider','claudeApiKey','openaiApiKey','zaiApiKey','customApiKey','customBaseUrl','customModel','newsApiKey'
+)`);
+
 // Seed default settings — env vars win on first start (INSERT OR IGNORE skips on subsequent starts)
+// Note: API keys, provider, and model selection are now .env-only; only non-credential settings live in the DB
 const defaults = {
-  llmProvider: process.env.LLM_PROVIDER || 'claude',
-  claudeApiKey: process.env.ANTHROPIC_API_KEY || '',
-  openaiApiKey: process.env.OPENAI_API_KEY || '',
-  zaiApiKey: process.env.ZAI_API_KEY || '',
-  customApiKey: process.env.CUSTOM_API_KEY || '',
-  customBaseUrl: process.env.CUSTOM_BASE_URL || '',
-  customModel: process.env.CUSTOM_MODEL || '',
-  newsApiKey: process.env.NEWS_API_KEY || '',
   weatherLat: process.env.WEATHER_LAT || '',
   weatherLon: process.env.WEATHER_LON || '',
   weatherCity: process.env.WEATHER_CITY || '',

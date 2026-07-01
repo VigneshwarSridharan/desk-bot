@@ -1,11 +1,9 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import axios from 'axios';
-import { getAllSettings } from '../store/db.js';
 
 async function doFetchNews(topics) {
-  const settings = getAllSettings();
-  const apiKey = process.env.NEWS_API_KEY || settings.newsApiKey;
+  const apiKey = process.env.NEWS_API_KEY;
   if (!apiKey) return { articles: [], error: 'No NewsAPI key configured' };
 
   const query = topics.join(' OR ');

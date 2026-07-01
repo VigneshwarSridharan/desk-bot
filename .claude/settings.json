@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git rev-parse *)",
+      "Bash(echo 'Project root: __CMDSUB_OUTPUT__')",
+      "Bash(yarn add *)",
+      "Bash(node -e \"import\\('./src/agent/modelProvider.js'\\).then\\(\\(\\) => console.log\\('✓ modelProvider.js loads successfully'\\)\\).catch\\(e => console.error\\('✗ Error:', e.message\\)\\)\")",
+      "Bash(npm search *)",
+      "Bash(npm view *)"
+    ]
+  }
+}

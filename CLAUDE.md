@@ -15,7 +15,7 @@ The core concept: **the AI is the app**. Every 10 minutes, the AI agent wakes up
 | App Shell    | React + Vite (PWA)                                                                 |
 | Styling      | Tailwind CSS v4                                                                    |
 | Backend      | Node.js + Express + Vercel AI SDK (`ai`, `@ai-sdk/anthropic`, `@ai-sdk/openai`)   |
-| LLM          | Pluggable — default Claude (claude-sonnet-4-6); switchable via Settings            |
+| LLM          | Pluggable via environment variables — Claude (claude-sonnet-4-6) by default        |
 | Data Storage | SQLite via `node:sqlite` (built-in Node.js v22+)                                  |
 | Agentic Loop | Vercel AI SDK `generateText` with tool-use (multi-step reasoning)                 |
 | News / Web   | NewsAPI (newsapi.org)                                                              |
@@ -32,7 +32,10 @@ desk-bot/
 │   ├── src/
 │   │   ├── index.js           # Express server entry, mounts routes, starts cron
 │   │   ├── agent/
-│   │   │   └── displayAgent.js  # Vercel AI SDK generateText + tools (agentic loop)
+│   │   │   ├── displayAgent.js  # Orchestrates context + render agent phases (two-phase agentic loop)
+│   │   │   ├── contextAgent.js  # Phase 1: gather data, decide content type
+│   │   │   ├── renderAgent.js   # Phase 2: generate full-screen HTML
+│   │   │   └── modelProvider.js # LLM model builder with per-agent-role provider/model selection
 │   │   ├── tools/
 │   │   │   ├── fetchNews.js   # NewsAPI: finance + general news
 │   │   │   ├── getWeather.js  # Open-Meteo weather (free)
@@ -71,7 +74,7 @@ desk-bot/
 │   │   │   └── settings.js
 │   │   │
 │   │   ├── components/
-│   │   │   ├── DisplayScreen.jsx  # Full-screen display: iframe + status bar + welcome
+│   │   │   ├── DisplayScreen.jsx  # Full-screen display: iframe + status bar
 │   │   │   ├── ManagePanel.jsx    # Slide-up admin panel (Portfolio/Reminders/Events/Tasks/Settings tabs)
 │   │   │   └── FallbackClock.jsx  # Fallback clock shown if backend unreachable
 │   │   │
@@ -122,17 +125,25 @@ Frontend (frontend/src/hooks/useAgentLoop.js):
 
 ## LLM Provider Abstraction
 
-The LLM layer is fully swappable via the Settings tab. Provider routing lives in `backend/src/agent/displayAgent.js`:
+Provider and model selection is configured entirely via environment variables (`.env`), not the Settings UI. The provider layer lives in `backend/src/agent/modelProvider.js` with two key functions:
 
-```js
-// buildModel(settings) — routes to Vercel AI SDK provider
-claude  → createAnthropic({ apiKey })('claude-sonnet-4-6')
-openai  → createOpenAI({ apiKey })('gpt-4o')
-zai     → createOpenAI({ baseURL: 'https://api.z.ai/...', apiKey })('glm-4.7:cloud')
-custom  → createOpenAI({ baseURL, apiKey })(customModel)   // Ollama, etc.
+**`getModelForRole(role)`** — resolves provider + model for a given agent role (`"context"` or `"render"`):
+- Checks for per-role provider override: `CONTEXT_LLM_PROVIDER` / `RENDER_LLM_PROVIDER`, falls back to `LLM_PROVIDER` (default: `'claude'`)
+- Checks for per-role model override: `CONTEXT_LLM_MODEL` / `RENDER_LLM_MODEL`, falls back to global `LLM_MODEL`, then to provider-specific default models
+- Supports per-role API key / base URL overrides: `CONTEXT_LLM_API_KEY`/`CONTEXT_LLM_BASE_URL`, etc.
+- Precedence: per-role model > global model > provider default
+
+Supported providers and their default models:
+```
+claude      → createAnthropic({ apiKey })('claude-sonnet-4-6')
+openai      → createOpenAI({ apiKey })('gpt-4o')
+openrouter  → createOpenRouter({ apiKey })('openai/gpt-4-turbo')
+zai         → createOpenAI({ baseURL: 'https://api.z.ai/api/paas/v4', apiKey })('glm-4.5-flash')
+google      → google({ apiKey })('gemini-2.0-flash')
+custom      → createOpenAI({ baseURL, apiKey })(customModel)   // Ollama, Groq, Cerebras, etc.
 ```
 
-Default provider: **Claude** (`claude-sonnet-4-6`). Switch to OpenAI in the Settings tab.
+This design allows the context agent and render agent to use different models or even different providers, optimized for their specific roles (e.g., a cheaper/faster model for rendering, a more capable model for reasoning).
 
 ---
 
@@ -234,12 +245,13 @@ AMBIENT   → Motivational/informational + time
 
 ### Settings (`store/settings.js`)
 
+Non-credential settings only (API keys and provider/model selection are now `.env` only):
+
 ```js
 {
-  llmProvider: 'claude',      // 'claude' | 'openai'
-  claudeApiKey: '',
-  openaiApiKey: '',
-  newsApiKey: '',
+  weatherLat: '',
+  weatherLon: '',
+  weatherCity: '',
   cycleIntervalMinutes: 10,
   screenWidth: number,
   screenHeight: number,
@@ -265,13 +277,45 @@ VITE_API_URL=http://localhost:3001   # Backend URL
 ```
 
 **Backend** (`backend/.env`):
+
+API keys and provider/model selection are strictly environment-based (no longer configurable via the Settings UI or stored in the database).
+
 ```
 PORT=3001
 FRONTEND_URL=http://localhost:5173
-# API keys are stored in SQLite via Settings tab — env vars optional (override for CI/Docker)
-ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
-NEWS_API_KEY=
+
+# Global default provider (both agents use this unless overridden)
+LLM_PROVIDER=claude
+
+# Global default model (optional) — overrides provider's default
+# LLM_MODEL=claude-opus-4-1
+
+# Per-agent-role overrides (optional)
+# CONTEXT_LLM_PROVIDER=openai
+# CONTEXT_LLM_MODEL=gpt-4o
+# CONTEXT_LLM_API_KEY=...
+# CONTEXT_LLM_BASE_URL=...
+# RENDER_LLM_PROVIDER=claude
+# RENDER_LLM_MODEL=claude-sonnet-4-6
+# RENDER_LLM_API_KEY=...
+# RENDER_LLM_BASE_URL=...
+
+# Credentials for selected provider(s) — REQUIRED
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+OPENROUTER_API_KEY=sk-or-...
+ZAI_API_KEY=...
+CUSTOM_BASE_URL=http://localhost:11434/v1
+CUSTOM_API_KEY=ollama
+CUSTOM_MODEL=llama3
+
+# Other required keys
+NEWS_API_KEY=...
+
+# Weather location (seeded into database on first start)
+WEATHER_LAT=13.0827
+WEATHER_LON=80.2707
+WEATHER_CITY=Chennai
 ```
 
 ---
@@ -308,7 +352,7 @@ Both must run simultaneously. Backend serves API + runs agent; frontend serves t
 - [x] Decider prompt + HTML injection via iframe
 - [x] News from NewsAPI (finance + general)
 - [x] Cycle history (no-repeat logic)
-- [x] Settings page (switch LLM provider, API keys, screen size)
+- [x] Settings page (weather, cycle interval, screen size; credentials and provider via .env)
 
 ### Phase 1.5 — Backend + Agentic (Current)
 
@@ -336,7 +380,7 @@ Both must run simultaneously. Backend serves API + runs agent; frontend serves t
 - **Backend required** — Express + SQLite; API keys live server-side for security
 - **Agentic tool-use** — LLM calls tools iteratively rather than receiving a giant context dump
 - **Vercel AI SDK** — provider-agnostic; supports Claude, OpenAI, and any OpenAI-compatible endpoint
-- **LLM is pluggable** — never hardcode a provider except in `backend/src/agent/displayAgent.js`
+- **LLM is pluggable via environment** — provider and model selection via `.env` (resolved in `backend/src/agent/modelProvider.js`), allowing per-agent-role customization
 - **Dark theme** — user prefers data-dense dark UI
 - **Single device** — Android mobile/tablet, portrait or landscape
 - **Claude as default** — matches the CLAUDE.md spec; OpenAI available as a fallback

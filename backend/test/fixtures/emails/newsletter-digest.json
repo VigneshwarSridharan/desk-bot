@@ -1,0 +1,31 @@
+{
+  "id": "newsletter-digest",
+  "description": "Newsletter-tagged sender — routes to the digest path and extracts headline items",
+  "email": {
+    "sender": "news@producthunt.com",
+    "subject": "Today's top launches",
+    "bodyText": "<html>ignored for digest mode</html>",
+    "listUnsubscribe": "<mailto:unsubscribe@producthunt.com>",
+    "inReplyTo": null,
+    "references": null
+  },
+  "allowlist": [{ "pattern": "news@producthunt.com", "kind": "sender", "type": "newsletter" }],
+  "expectedRoute": { "route": "newsletter", "reason": null },
+  "mode": "digest",
+  "strippedText": "Portal X launched a new AI feature. Startup Y raised a Series A. Tool Z shipped dark mode.",
+  "modelResponse": {
+    "items": [
+      "Portal X launched a new AI feature",
+      "Startup Y raised a Series A",
+      "Tool Z shipped dark mode"
+    ]
+  },
+  "expected": {
+    "outcome": "extracted",
+    "items": [
+      "Portal X launched a new AI feature",
+      "Startup Y raised a Series A",
+      "Tool Z shipped dark mode"
+    ]
+  }
+}

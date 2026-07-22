@@ -1,0 +1,21 @@
+{
+  "id": "malformed-twice",
+  "description": "Both attempts return unparseable output — skipped with reason extract-failed",
+  "email": {
+    "sender": "billing@airtel.in",
+    "subject": "Your Airtel bill is ready",
+    "bodyText": "Your postpaid bill of INR 599 is due on 2026-08-01.",
+    "listUnsubscribe": null,
+    "inReplyTo": null,
+    "references": null
+  },
+  "allowlist": [{ "pattern": "billing@airtel.in", "kind": "sender", "type": "transactional" }],
+  "expectedRoute": { "route": "transactional", "reason": null },
+  "mode": "transactional",
+  "modelResponse": "not json at all",
+  "retryModelResponse": "still not json",
+  "expected": {
+    "outcome": "skipped",
+    "reason": "extract-failed"
+  }
+}

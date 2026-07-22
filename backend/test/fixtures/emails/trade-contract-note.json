@@ -1,0 +1,33 @@
+{
+  "id": "trade-contract-note",
+  "description": "Broker contract note with extracted attachment text — extracts a trade fact and a password hint",
+  "email": {
+    "sender": "noreply@zerodha.com",
+    "subject": "Contract Note - 22-Jul-2026",
+    "bodyText": "Please find attached your contract note. The password is your PAN followed by your date of birth in DDMMYYYY format.",
+    "listUnsubscribe": null,
+    "inReplyTo": null,
+    "references": null
+  },
+  "attachmentText": "Contract Note\nBought 10 HDFCBANK @ 1520.00",
+  "allowlist": [{ "pattern": "noreply@zerodha.com", "kind": "sender", "type": "transactional" }],
+  "expectedRoute": { "route": "transactional", "reason": null },
+  "mode": "transactional",
+  "modelResponse": {
+    "intent": "transaction",
+    "confidence": 0.91,
+    "passwordHint": "The password is your PAN followed by your date of birth in DDMMYYYY format.",
+    "facts": [
+      { "type": "trade", "symbol": "HDFCBANK", "side": "buy", "quantity": 10, "price": 1520.0 }
+    ]
+  },
+  "expected": {
+    "outcome": "extracted",
+    "intent": "transaction",
+    "confidence": 0.91,
+    "passwordHint": "The password is your PAN followed by your date of birth in DDMMYYYY format.",
+    "facts": [
+      { "type": "trade", "symbol": "HDFCBANK", "side": "buy", "quantity": 10, "price": 1520.0 }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "event-invite",
+  "description": "Transactional meeting invite — extracts an event fact",
+  "email": {
+    "sender": "calendar-noreply@google.com",
+    "subject": "Invitation: Quarterly Review @ Fri Jul 24, 2026 3pm",
+    "bodyText": "You have been invited to Quarterly Review on 2026-07-24 at 15:00.",
+    "listUnsubscribe": null,
+    "inReplyTo": null,
+    "references": null
+  },
+  "allowlist": [{ "pattern": "calendar-noreply@google.com", "kind": "sender", "type": "transactional" }],
+  "expectedRoute": { "route": "transactional", "reason": null },
+  "mode": "transactional",
+  "modelResponse": {
+    "intent": "event",
+    "confidence": 0.97,
+    "passwordHint": null,
+    "facts": [
+      { "type": "event", "title": "Quarterly Review", "date": "2026-07-24", "time": "15:00" }
+    ]
+  },
+  "expected": {
+    "outcome": "extracted",
+    "intent": "event",
+    "confidence": 0.97,
+    "passwordHint": null,
+    "facts": [
+      { "type": "event", "title": "Quarterly Review", "date": "2026-07-24", "time": "15:00" }
+    ]
+  }
+}

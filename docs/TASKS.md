@@ -18,7 +18,7 @@ Tasks are ordered so that each one builds on completed work — follow the **Dep
 
 Safety and resilience groundwork: schema, secrets, render safety, news resilience. No external integrations yet.
 
-### ⬜ Task 1 — DB migrations: schema_version + new tables/columns (M)
+### 🟨 Task 1 — DB migrations: schema_version + new tables/columns (M)
 **Depends on:** —
 - Add a `schema_version` table to `db.js` with ordered, idempotent migrations
 - Migration 001: `source`, `sourceRef`/`sourceEmailId` columns on `tasks`, `events`, `portfolio` (DEFAULT `'manual'`); `layoutFingerprint` on `history`

@@ -15,6 +15,8 @@ import { getSettings, saveSettings } from '../api/settings.js'
 import {
   getConnections, startGoogleConnect, disconnectAccount, getAllowlist, saveAllowlist,
 } from '../api/connections.js'
+import { getIngestActivity, runIngestNow, rejectFact } from '../api/ingest.js'
+import { getBills, markBillPaid } from '../api/bills.js'
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
@@ -916,6 +918,153 @@ function ConnectionsTab() {
   )
 }
 
+// ─── Activity Tab ─────────────────────────────────────────────────────────────
+
+function BillRow({ bill, sourceEmail, onMarkPaid }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const isOverdue = bill.dueDate && bill.dueDate < today && bill.status !== 'paid'
+  return (
+    <div className="flex items-start justify-between py-2.5" style={{ borderBottom: `1px solid ${C.border}` }}>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium" style={{ color: C.text }}>{bill.vendor}</span>
+          <span className="text-sm" style={{ color: C.text }}>{bill.currency} {bill.amount}</span>
+          {bill.status === 'paid' && <Badge color="CONNECTED">PAID</Badge>}
+        </div>
+        <span className="text-xs" style={{ color: isOverdue ? '#ef4444' : C.muted }}>
+          {bill.dueDate
+            ? `${isOverdue ? '⚠ Overdue ' : 'Due '}${new Date(bill.dueDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+            : 'Due date unknown'}
+        </span>
+        {sourceEmail && (
+          <span className="text-xs truncate" style={{ color: C.muted }}>
+            From: {sourceEmail.sender}{sourceEmail.subject ? ` — "${sourceEmail.subject}"` : ''}
+          </span>
+        )}
+      </div>
+      {bill.status !== 'paid' && (
+        <Btn variant="ghost" small onClick={onMarkPaid} className="flex-shrink-0">Mark Paid</Btn>
+      )}
+    </div>
+  )
+}
+
+function ActivityRow({ item, onReject }) {
+  return (
+    <Card className="mb-3">
+      <div className="flex flex-col gap-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium truncate" style={{ color: C.text }}>{item.sender || 'unknown sender'}</span>
+          <Badge color={item.outcome === 'extracted' ? 'CONNECTED' : 'ERROR'}>
+            {item.outcome?.toUpperCase()}
+          </Badge>
+        </div>
+        {item.subject && <span className="text-sm truncate" style={{ color: C.muted }}>{item.subject}</span>}
+        {item.reason && <span className="text-xs" style={{ color: '#ef4444' }}>Reason: {item.reason}</span>}
+        <span className="text-xs" style={{ color: C.muted }}>
+          {item.processedAt ? new Date(item.processedAt).toLocaleString('en-IN') : ''}
+        </span>
+      </div>
+      {item.factRefs?.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-2">
+          {item.factRefs.map((ref) => (
+            <div
+              key={ref}
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1"
+              style={{ backgroundColor: '#111', border: `1px solid ${C.border}` }}
+            >
+              <span className="text-xs" style={{ color: C.muted }}>{ref}</span>
+              <button
+                onClick={() => onReject(ref)}
+                className="text-xs cursor-pointer"
+                style={{ color: '#ef4444', background: 'none', border: 'none' }}
+                aria-label={`Reject ${ref}`}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function ActivityTab() {
+  const [activity, setActivity] = useState([])
+  const [bills, setBills] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [running, setRunning] = useState(false)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [a, b] = await Promise.all([getIngestActivity(), getBills()])
+      setActivity(a)
+      setBills(b)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  const emailById = Object.fromEntries(activity.map((a) => [a.gmailMessageId, a]))
+
+  async function handleRun() {
+    setRunning(true)
+    try {
+      await runIngestNow()
+    } finally {
+      setTimeout(() => { setRunning(false); refresh() }, 1500)
+    }
+  }
+
+  async function handleReject(ref) {
+    await rejectFact(ref)
+    refresh()
+  }
+
+  async function handleMarkPaid(id) {
+    await markBillPaid(id)
+    refresh()
+  }
+
+  if (loading) return <p style={{ color: C.muted }}>Loading activity…</p>
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <SectionTitle>Bills ({bills.filter((b) => b.status !== 'paid').length} due)</SectionTitle>
+        {bills.length === 0 && (
+          <p className="text-sm py-4" style={{ color: C.muted }}>No bills tracked yet.</p>
+        )}
+        {bills.map((bill) => (
+          <BillRow
+            key={bill.id}
+            bill={bill}
+            sourceEmail={emailById[bill.sourceEmailId]}
+            onMarkPaid={() => handleMarkPaid(bill.id)}
+          />
+        ))}
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <SectionTitle>Recent Ingestion Activity ({activity.length})</SectionTitle>
+          <Btn small onClick={handleRun} disabled={running}>{running ? 'Running…' : 'Run Now'}</Btn>
+        </div>
+        {activity.length === 0 && (
+          <p className="text-sm py-4" style={{ color: C.muted }}>No emails processed yet.</p>
+        )}
+        {activity.map((item) => (
+          <ActivityRow key={item.gmailMessageId} item={item} onReject={handleReject} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS = {
@@ -1069,7 +1218,7 @@ function SettingsTab() {
 
 // ─── ManagePanel root ─────────────────────────────────────────────────────────
 
-const TABS = ['Portfolio', 'Reminders', 'Events', 'Tasks', 'Connections', 'Settings']
+const TABS = ['Portfolio', 'Reminders', 'Events', 'Tasks', 'Connections', 'Activity', 'Settings']
 
 const TAB_COMPONENTS = {
   Portfolio: PortfolioTab,
@@ -1077,6 +1226,7 @@ const TAB_COMPONENTS = {
   Events: EventsTab,
   Tasks: TasksTab,
   Connections: ConnectionsTab,
+  Activity: ActivityTab,
   Settings: SettingsTab,
 }
 

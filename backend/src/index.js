@@ -15,6 +15,7 @@ import tasksRoutes from "./routes/tasks.js";
 import settingsRoutes from "./routes/settings.js";
 import connectionsRoutes from "./routes/connections.js";
 import { startScheduler } from "./scheduler.js";
+import { startIngestScheduler } from "./ingestScheduler.js";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -60,4 +61,5 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`[server] Desk Bot backend running on http://localhost:${PORT}`);
   startScheduler();
+  startIngestScheduler();
 });

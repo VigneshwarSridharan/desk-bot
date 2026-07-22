@@ -6,7 +6,8 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "devtools": "npx @ai-sdk/devtools",
-    "test": "node --test"
+    "test": "node --test",
+    "gen-vault-key": "node scripts/gen-vault-key.js"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.1",

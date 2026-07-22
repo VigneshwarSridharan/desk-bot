@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createBaseTables, runMigrations } from './migrations.js';
+import { checkVaultKey } from './vault.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(__dirname, '../../data/desk-bot.db');
@@ -13,6 +14,7 @@ db.exec('PRAGMA foreign_keys = ON');
 
 createBaseTables(db);
 runMigrations(db);
+checkVaultKey(db);
 
 // Seed display_cache row if not present
 const cacheRow = db.prepare('SELECT id FROM display_cache WHERE id = 1').get();

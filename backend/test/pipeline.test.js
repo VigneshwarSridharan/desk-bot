@@ -53,7 +53,11 @@ beforeEach(() => {
 
   mock.module('../src/store/db.js', { defaultExport: testDb });
   mock.module('../src/google/gmail.js', {
-    namedExports: { fetchAccountMessages: (...args) => fetchAccountMessagesMock(...args) },
+    namedExports: {
+      fetchAccountMessages: (...args) => fetchAccountMessagesMock(...args),
+      fetchAttachmentData: () => { throw new Error('fetchAttachmentData not stubbed for this test'); },
+      fetchSingleMessage: () => { throw new Error('fetchSingleMessage not stubbed for this test'); },
+    },
   });
   mock.module('../src/agent/extractAgent.js', {
     namedExports: {

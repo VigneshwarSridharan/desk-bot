@@ -19,10 +19,12 @@
 
 import crypto from 'node:crypto';
 import db from '../store/db.js';
-import { fetchAccountMessages } from '../google/gmail.js';
+import { fetchAccountMessages, fetchAttachmentData, fetchSingleMessage } from '../google/gmail.js';
 import { prefilterMessage } from './prefilter.js';
 import { extractTransactional, extractDigest } from '../agent/extractAgent.js';
 import { getModelForRole } from '../agent/modelProvider.js';
+import { isPdfAttachment, readPdfAttachment, tryPdfPassword } from './attachments.js';
+import { resolveAttachmentPassword } from './passwords.js';
 
 const DIGEST_TEXT_CAP = 8000;
 const DIGEST_EXPIRY_DAYS = 5;
@@ -163,6 +165,38 @@ function writeFact(fact, sourceEmailId) {
   }
 }
 
+// Resolves the first processable (non-oversize) PDF attachment on a message
+// to its text, per ENGINEERING §4.2. `passwordHint` is the first extraction
+// pass's own verbatim hint sentence, tier 1 of the resolution chain.
+// Returns null when the message carries no PDF attachment to process at
+// all — the caller falls back to bodyText-only extraction unchanged.
+async function extractPdfAttachmentText(accountId, message, passwordHint) {
+  const attachment = (message.attachments || []).find((a) => isPdfAttachment(a) && !a.oversize);
+  if (!attachment) return null;
+
+  const buffer = await fetchAttachmentData(accountId, message.id, attachment.attachmentId);
+  const initial = await readPdfAttachment(buffer);
+  if (initial.status === 'ok') return { outcome: 'ok', text: initial.text };
+  if (initial.status === 'unreadable') return { outcome: 'unreadable' };
+
+  let resolvedText = null;
+  await resolveAttachmentPassword({
+    db,
+    sender: message.sender,
+    passwordHint,
+    tryPassword: async (candidate) => {
+      const result = await tryPdfPassword(buffer, candidate);
+      if (result.status === 'ok') {
+        resolvedText = result.text;
+        return true;
+      }
+      return false;
+    },
+  });
+
+  return resolvedText ? { outcome: 'ok', text: resolvedText } : { outcome: 'locked' };
+}
+
 async function processMessage(accountId, message, allowlist) {
   const routing = prefilterMessage(message, allowlist);
   if (routing.route === 'discard') {
@@ -210,11 +244,40 @@ async function processMessage(accountId, message, allowlist) {
     });
     return 'skipped';
   }
+
+  // A PDF attachment, once its text is resolved, supersedes the bodyText-only
+  // pass — a contract note's actual trade details live in the attachment,
+  // not the notification email around it (ENGINEERING §4/§5.2).
+  let finalResult = result;
+  const attachment = await extractPdfAttachmentText(accountId, message, result.passwordHint);
+  if (attachment?.outcome === 'locked' || attachment?.outcome === 'unreadable') {
+    upsertProcessedEmail({
+      gmailMessageId: message.id, accountId, sender: message.sender, subject: message.subject,
+      outcome: 'skipped', reason: attachment.outcome, factRefs: [],
+    });
+    return 'skipped';
+  }
+  if (attachment?.outcome === 'ok') {
+    finalResult = await extractTransactional(model, {
+      sender: message.sender,
+      subject: message.subject,
+      bodyText: message.bodyText,
+      attachmentText: attachment.text,
+    });
+    if (finalResult.outcome === 'skipped') {
+      upsertProcessedEmail({
+        gmailMessageId: message.id, accountId, sender: message.sender, subject: message.subject,
+        outcome: 'skipped', reason: finalResult.reason, factRefs: [],
+      });
+      return 'skipped';
+    }
+  }
+
   upsertProcessedEmail({
     gmailMessageId: message.id, accountId, sender: message.sender, subject: message.subject,
     outcome: 'extracted', reason: null, factRefs: [],
   });
-  const factRefs = result.facts.map((fact) => writeFact(fact, message.id)).filter(Boolean);
+  const factRefs = finalResult.facts.map((fact) => writeFact(fact, message.id)).filter(Boolean);
   upsertProcessedEmail({
     gmailMessageId: message.id, accountId, sender: message.sender, subject: message.subject,
     outcome: 'extracted', reason: null, factRefs,
@@ -272,6 +335,23 @@ export async function runIngestionPipeline() {
     }
   }
   return results;
+}
+
+/**
+ * Re-fetches and reprocesses a single previously-locked message (ENGINEERING
+ * §6 `POST /api/ingest/locked/:emailId/password`): called right after the
+ * user enters a password for the message's sender, so this one message
+ * unlocks immediately rather than waiting for the next ingestion run.
+ * Returns 'extracted' | 'skipped', or null if the message was never seen
+ * by this pipeline (unknown gmailMessageId).
+ */
+export async function reprocessMessage(gmailMessageId) {
+  const row = db.prepare('SELECT accountId FROM processed_emails WHERE gmailMessageId = ?').get(gmailMessageId);
+  if (!row) return null;
+
+  const message = await fetchSingleMessage(row.accountId, gmailMessageId);
+  const allowlist = db.prepare('SELECT pattern, kind, type FROM allowlist_entries WHERE accountId = ?').all(row.accountId);
+  return processMessage(row.accountId, message, allowlist);
 }
 
 /**

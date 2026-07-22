@@ -208,6 +208,24 @@ export async function fetchAccountMessages(accountId) {
   return { accountId, messages, skipped, capped };
 }
 
+/** Re-fetches and parses a single message by ID — used to reprocess a
+ * previously-locked message right after its password is resolved, without
+ * waiting for the next incremental sync to happen to surface it again. */
+export async function fetchSingleMessage(accountId, messageId) {
+  const accessToken = await getAccessToken(accountId);
+  return parseMessage(await getMessage(accessToken, messageId));
+}
+
+/** Downloads one attachment's raw bytes for a given message. */
+export async function fetchAttachmentData(accountId, messageId, attachmentId) {
+  const accessToken = await getAccessToken(accountId);
+  const { data } = await axios.get(
+    `${GMAIL_BASE}/messages/${messageId}/attachments/${attachmentId}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  return Buffer.from(data.data, 'base64url');
+}
+
 /** Fetches for every connected account; one account's failure never blocks the others. */
 export async function fetchAllAccountMessages() {
   const accounts = db.prepare("SELECT id FROM mail_accounts WHERE status = 'connected'").all();

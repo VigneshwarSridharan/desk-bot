@@ -15,6 +15,8 @@ const testDb = makeDb();
 const runIngestCycleMock = mock.fn(async () => {});
 let ingestRunning = false;
 const rejectFactMock = mock.fn(() => true);
+const reprocessMessageMock = mock.fn(async () => 'extracted');
+const storePasswordMock = mock.fn(() => {});
 
 mock.module('../src/store/db.js', { defaultExport: testDb });
 mock.module('../src/ingestScheduler.js', {
@@ -24,7 +26,16 @@ mock.module('../src/ingestScheduler.js', {
   },
 });
 mock.module('../src/ingest/pipeline.js', {
-  namedExports: { rejectFact: (...args) => rejectFactMock(...args) },
+  namedExports: {
+    rejectFact: (...args) => rejectFactMock(...args),
+    reprocessMessage: (...args) => reprocessMessageMock(...args),
+  },
+});
+mock.module('../src/ingest/passwords.js', {
+  namedExports: {
+    storePassword: (...args) => storePasswordMock(...args),
+    normalizeSender: (sender) => String(sender || '').toLowerCase(),
+  },
 });
 
 const { default: ingestRoutes } = await import('../src/routes/ingest.js');
@@ -49,6 +60,9 @@ beforeEach(() => {
   runIngestCycleMock.mock.resetCalls();
   rejectFactMock.mock.resetCalls();
   rejectFactMock.mock.mockImplementation(() => true);
+  reprocessMessageMock.mock.resetCalls();
+  reprocessMessageMock.mock.mockImplementation(async () => 'extracted');
+  storePasswordMock.mock.resetCalls();
   ingestRunning = false;
 });
 
@@ -113,5 +127,70 @@ describe('DELETE /api/ingest/facts/:ref', () => {
     rejectFactMock.mock.mockImplementation(() => false);
     const res = await fetch(`${baseUrl}/facts/bill:missing`, { method: 'DELETE' });
     assert.equal(res.status, 404);
+  });
+});
+
+describe('GET /api/ingest/locked', () => {
+  test('lists only skipped-with-reason-locked emails', async () => {
+    seedProcessedEmail({ gmailMessageId: 'm-locked', outcome: 'skipped', reason: 'locked', factRefs: [] });
+    seedProcessedEmail({ gmailMessageId: 'm-ok', outcome: 'extracted', reason: null });
+    seedProcessedEmail({ gmailMessageId: 'm-unreadable', outcome: 'skipped', reason: 'unreadable', factRefs: [] });
+
+    const res = await fetch(`${baseUrl}/locked`);
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(body.length, 1);
+    assert.equal(body[0].gmailMessageId, 'm-locked');
+  });
+});
+
+describe('POST /api/ingest/locked/:emailId/password', () => {
+  test('stores the password and reprocesses the message', async () => {
+    seedProcessedEmail({ gmailMessageId: 'm-locked', sender: 'billing@vendor.com', outcome: 'skipped', reason: 'locked', factRefs: [] });
+
+    const res = await fetch(`${baseUrl}/locked/m-locked/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: 'the-real-password' }),
+    });
+    const body = await res.json();
+
+    assert.equal(res.status, 200);
+    assert.equal(body.outcome, 'extracted');
+    assert.equal(storePasswordMock.mock.calls[0].arguments[1], 'billing@vendor.com');
+    assert.equal(storePasswordMock.mock.calls[0].arguments[2], 'the-real-password');
+    assert.equal(reprocessMessageMock.mock.calls[0].arguments[0], 'm-locked');
+  });
+
+  test('400s when no password is provided', async () => {
+    seedProcessedEmail({ gmailMessageId: 'm-locked', outcome: 'skipped', reason: 'locked', factRefs: [] });
+    const res = await fetch(`${baseUrl}/locked/m-locked/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    assert.equal(res.status, 400);
+    assert.equal(reprocessMessageMock.mock.callCount(), 0);
+  });
+
+  test('404s for an unknown email id', async () => {
+    const res = await fetch(`${baseUrl}/locked/does-not-exist/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: 'x' }),
+    });
+    assert.equal(res.status, 404);
+  });
+
+  test('502s when reprocessing throws', async () => {
+    seedProcessedEmail({ gmailMessageId: 'm-locked', sender: 'billing@vendor.com', outcome: 'skipped', reason: 'locked', factRefs: [] });
+    reprocessMessageMock.mock.mockImplementation(async () => { throw new Error('gmail api down'); });
+
+    const res = await fetch(`${baseUrl}/locked/m-locked/password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: 'x' }),
+    });
+    assert.equal(res.status, 502);
   });
 });

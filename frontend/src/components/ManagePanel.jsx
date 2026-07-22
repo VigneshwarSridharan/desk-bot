@@ -15,8 +15,11 @@ import { getSettings, saveSettings } from '../api/settings.js'
 import {
   getConnections, startGoogleConnect, disconnectAccount, getAllowlist, saveAllowlist,
 } from '../api/connections.js'
-import { getIngestActivity, runIngestNow, rejectFact } from '../api/ingest.js'
+import {
+  getIngestActivity, runIngestNow, rejectFact, getLockedQueue, submitLockedPassword,
+} from '../api/ingest.js'
 import { getBills, markBillPaid } from '../api/bills.js'
+import { getVault, saveVault, deleteVault } from '../api/vault.js'
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
@@ -990,18 +993,63 @@ function ActivityRow({ item, onReject }) {
   )
 }
 
+function LockedRow({ item, onUnlock }) {
+  const [password, setPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function submit() {
+    if (!password.trim()) return
+    setSubmitting(true)
+    setError('')
+    try {
+      await onUnlock(item.gmailMessageId, password.trim())
+      setPassword('')
+    } catch (err) {
+      setError(err.message || 'Failed to unlock')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Card className="mb-3">
+      <div className="flex flex-col gap-1 mb-2">
+        <span className="font-medium" style={{ color: C.text }}>{item.sender || 'unknown sender'}</span>
+        {item.subject && <span className="text-sm" style={{ color: C.muted }}>{item.subject}</span>}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Enter document password"
+          className="rounded-lg px-3 py-2 text-sm outline-none flex-1"
+          style={{ backgroundColor: '#111', border: `1px solid ${C.border}`, color: C.text }}
+        />
+        <Btn small onClick={submit} disabled={submitting || !password.trim()}>
+          {submitting ? 'Unlocking…' : 'Unlock'}
+        </Btn>
+      </div>
+      {error && <span className="text-xs mt-1 block" style={{ color: '#ef4444' }}>{error}</span>}
+    </Card>
+  )
+}
+
 function ActivityTab() {
   const [activity, setActivity] = useState([])
   const [bills, setBills] = useState([])
+  const [locked, setLocked] = useState([])
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
 
   const refresh = useCallback(async () => {
     setLoading(true)
     try {
-      const [a, b] = await Promise.all([getIngestActivity(), getBills()])
+      const [a, b, l] = await Promise.all([getIngestActivity(), getBills(), getLockedQueue()])
       setActivity(a)
       setBills(b)
+      setLocked(l)
     } finally {
       setLoading(false)
     }
@@ -1030,10 +1078,24 @@ function ActivityTab() {
     refresh()
   }
 
+  async function handleUnlock(emailId, password) {
+    await submitLockedPassword(emailId, password)
+    refresh()
+  }
+
   if (loading) return <p style={{ color: C.muted }}>Loading activity…</p>
 
   return (
     <div className="flex flex-col gap-6">
+      {locked.length > 0 && (
+        <div>
+          <SectionTitle>Locked Documents ({locked.length})</SectionTitle>
+          {locked.map((item) => (
+            <LockedRow key={item.gmailMessageId} item={item} onUnlock={handleUnlock} />
+          ))}
+        </div>
+      )}
+
       <div>
         <SectionTitle>Bills ({bills.filter((b) => b.status !== 'paid').length} due)</SectionTitle>
         {bills.length === 0 && (
@@ -1060,6 +1122,81 @@ function ActivityTab() {
         {activity.map((item) => (
           <ActivityRow key={item.gmailMessageId} item={item} onReject={handleReject} />
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Vault Tab ────────────────────────────────────────────────────────────────
+
+const VAULT_FIELD_LABELS = {
+  name: 'Full name',
+  dob: 'Date of birth (YYYY-MM-DD)',
+  mobile: 'Mobile number',
+  pan: 'PAN',
+  accountNumbers: 'Account numbers',
+}
+
+function VaultTab() {
+  const [fields, setFields] = useState({})
+  const [form, setForm] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      setFields(await getVault())
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await saveVault(form)
+      setForm({})
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+      refresh()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDeleteAll() {
+    if (!window.confirm('Permanently delete all vault data — identity fields, saved document passwords, and connected account tokens?')) return
+    await deleteVault()
+    refresh()
+  }
+
+  if (loading) return <p style={{ color: C.muted }}>Loading vault…</p>
+
+  return (
+    <div className="flex flex-col gap-5 max-w-lg">
+      <p className="text-xs" style={{ color: C.muted }}>
+        Used to auto-unlock password-protected statements from your inbox (ENGINEERING §4.2).
+        Values are encrypted at rest and never shown in full.
+      </p>
+      {Object.entries(VAULT_FIELD_LABELS).map(([key, label]) => (
+        <Input
+          key={key}
+          label={fields[key]?.set ? `${label} — currently ${fields[key].masked}` : label}
+          value={form[key] ?? ''}
+          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+          placeholder={fields[key]?.set ? 'Enter a new value to replace it' : label}
+        />
+      ))}
+      <div className="flex items-center gap-3">
+        <Btn onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Save'}</Btn>
+        {saved && <span className="text-sm font-medium" style={{ color: '#22c55e' }}>Saved ✓</span>}
+      </div>
+      <div className="pt-4" style={{ borderTop: `1px solid ${C.border}` }}>
+        <Btn variant="danger" onClick={handleDeleteAll}>Delete all vault data</Btn>
       </div>
     </div>
   )
@@ -1218,7 +1355,7 @@ function SettingsTab() {
 
 // ─── ManagePanel root ─────────────────────────────────────────────────────────
 
-const TABS = ['Portfolio', 'Reminders', 'Events', 'Tasks', 'Connections', 'Activity', 'Settings']
+const TABS = ['Portfolio', 'Reminders', 'Events', 'Tasks', 'Connections', 'Activity', 'Vault', 'Settings']
 
 const TAB_COMPONENTS = {
   Portfolio: PortfolioTab,
@@ -1227,6 +1364,7 @@ const TAB_COMPONENTS = {
   Tasks: TasksTab,
   Connections: ConnectionsTab,
   Activity: ActivityTab,
+  Vault: VaultTab,
   Settings: SettingsTab,
 }
 

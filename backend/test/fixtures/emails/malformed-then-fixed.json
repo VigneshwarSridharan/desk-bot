@@ -1,0 +1,33 @@
+{
+  "id": "malformed-then-fixed",
+  "description": "First model response isn't valid JSON; the one-shot fix retry succeeds",
+  "email": {
+    "sender": "hr@myemployer.com",
+    "subject": "Submit your timesheet",
+    "bodyText": "Please submit your timesheet by 2026-07-25.",
+    "listUnsubscribe": null,
+    "inReplyTo": null,
+    "references": null
+  },
+  "allowlist": [{ "pattern": "hr@myemployer.com", "kind": "sender", "type": "transactional" }],
+  "expectedRoute": { "route": "transactional", "reason": null },
+  "mode": "transactional",
+  "modelResponse": "Sure, here's the info you wanted: intent is task, due 2026-07-25.",
+  "retryModelResponse": {
+    "intent": "task",
+    "confidence": 0.85,
+    "passwordHint": null,
+    "facts": [
+      { "type": "task", "title": "Submit timesheet", "due": "2026-07-25", "priority": "medium" }
+    ]
+  },
+  "expected": {
+    "outcome": "extracted",
+    "intent": "task",
+    "confidence": 0.85,
+    "passwordHint": null,
+    "facts": [
+      { "type": "task", "title": "Submit timesheet", "due": "2026-07-25", "priority": "medium" }
+    ]
+  }
+}

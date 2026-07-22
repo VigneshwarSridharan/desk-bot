@@ -1,0 +1,15 @@
+{
+  "id": "thread-discard",
+  "description": "Reply within an email thread — discarded before any LLM call",
+  "email": {
+    "sender": "noreply@zerodha.com",
+    "subject": "Re: Contract Note - 22-Jul-2026",
+    "bodyText": "Thanks for confirming.",
+    "listUnsubscribe": null,
+    "inReplyTo": "<original-message-id@zerodha.com>",
+    "references": "<original-message-id@zerodha.com>"
+  },
+  "allowlist": [{ "pattern": "noreply@zerodha.com", "kind": "sender", "type": "transactional" }],
+  "expectedRoute": { "route": "discard", "reason": "thread" },
+  "mode": null
+}

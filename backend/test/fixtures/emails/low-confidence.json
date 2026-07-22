@@ -1,0 +1,29 @@
+{
+  "id": "low-confidence",
+  "description": "Model returns a low-confidence classification — treated as 'other' and skipped",
+  "email": {
+    "sender": "updates@somebank.com",
+    "subject": "Account notice",
+    "bodyText": "Please review the attached notice regarding your account.",
+    "listUnsubscribe": null,
+    "inReplyTo": null,
+    "references": null
+  },
+  "allowlist": [{ "pattern": "updates@somebank.com", "kind": "sender", "type": "transactional" }],
+  "expectedRoute": { "route": "transactional", "reason": null },
+  "mode": "transactional",
+  "modelResponse": {
+    "intent": "statement",
+    "confidence": 0.3,
+    "passwordHint": null,
+    "facts": []
+  },
+  "expected": {
+    "outcome": "skipped",
+    "reason": "low-confidence",
+    "intent": "other",
+    "confidence": 0.3,
+    "passwordHint": null,
+    "facts": []
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "digest-malformed-twice",
+  "description": "Newsletter digest mode where both attempts return unparseable output — skipped with reason extract-failed",
+  "email": {
+    "sender": "news@producthunt.com",
+    "subject": "Today's top launches",
+    "bodyText": "<html>ignored for digest mode</html>",
+    "listUnsubscribe": "<mailto:unsubscribe@producthunt.com>",
+    "inReplyTo": null,
+    "references": null
+  },
+  "allowlist": [{ "pattern": "news@producthunt.com", "kind": "sender", "type": "newsletter" }],
+  "expectedRoute": { "route": "newsletter", "reason": null },
+  "mode": "digest",
+  "strippedText": "garbled newsletter content",
+  "modelResponse": "nope",
+  "retryModelResponse": "{ \"items\": [] }",
+  "expected": {
+    "outcome": "skipped",
+    "reason": "extract-failed"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "id": "bill-airtel",
+  "description": "Transactional bill notification — extracts a due bill fact",
+  "email": {
+    "sender": "billing@airtel.in",
+    "subject": "Your Airtel bill is ready",
+    "bodyText": "Dear customer, your postpaid bill of INR 599 is due on 2026-08-01. Pay now to avoid late fees.",
+    "listUnsubscribe": null,
+    "inReplyTo": null,
+    "references": null
+  },
+  "allowlist": [{ "pattern": "billing@airtel.in", "kind": "sender", "type": "transactional" }],
+  "expectedRoute": { "route": "transactional", "reason": null },
+  "mode": "transactional",
+  "modelResponse": {
+    "intent": "bill",
+    "confidence": 0.94,
+    "passwordHint": null,
+    "facts": [
+      { "type": "bill", "vendor": "Airtel", "amount": 599, "currency": "INR", "dueDate": "2026-08-01" }
+    ]
+  },
+  "expected": {
+    "outcome": "extracted",
+    "intent": "bill",
+    "confidence": 0.94,
+    "passwordHint": null,
+    "facts": [
+      { "type": "bill", "vendor": "Airtel", "amount": 599, "currency": "INR", "dueDate": "2026-08-01" }
+    ]
+  }
+}

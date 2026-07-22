@@ -1,0 +1,15 @@
+{
+  "id": "not-allowlisted",
+  "description": "Sender doesn't match any allowlist pattern and there are no label entries — defense-in-depth discard",
+  "email": {
+    "sender": "friend@gmail.com",
+    "subject": "lunch?",
+    "bodyText": "want to grab lunch today?",
+    "listUnsubscribe": null,
+    "inReplyTo": null,
+    "references": null
+  },
+  "allowlist": [{ "pattern": "billing@airtel.in", "kind": "sender", "type": "transactional" }],
+  "expectedRoute": { "route": "discard", "reason": "not-allowlisted" },
+  "mode": null
+}

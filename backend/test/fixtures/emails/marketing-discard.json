@@ -1,0 +1,15 @@
+{
+  "id": "marketing-discard",
+  "description": "Transactional sender but List-Unsubscribe present — discarded as marketing before any LLM call",
+  "email": {
+    "sender": "billing@airtel.in",
+    "subject": "Special offer just for you!",
+    "bodyText": "Upgrade your plan today and save big.",
+    "listUnsubscribe": "<mailto:unsubscribe@airtel.in>",
+    "inReplyTo": null,
+    "references": null
+  },
+  "allowlist": [{ "pattern": "billing@airtel.in", "kind": "sender", "type": "transactional" }],
+  "expectedRoute": { "route": "discard", "reason": "marketing" },
+  "mode": null
+}

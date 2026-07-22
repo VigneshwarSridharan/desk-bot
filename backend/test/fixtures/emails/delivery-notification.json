@@ -1,0 +1,28 @@
+{
+  "id": "delivery-notification",
+  "description": "Delivery notice with no structured fact type available — extracts with empty facts",
+  "email": {
+    "sender": "shipment-tracking@amazon.in",
+    "subject": "Your package is out for delivery",
+    "bodyText": "Your order #402-1234567 is out for delivery and will arrive today.",
+    "listUnsubscribe": null,
+    "inReplyTo": null,
+    "references": null
+  },
+  "allowlist": [{ "pattern": "shipment-tracking@amazon.in", "kind": "sender", "type": "transactional" }],
+  "expectedRoute": { "route": "transactional", "reason": null },
+  "mode": "transactional",
+  "modelResponse": {
+    "intent": "delivery",
+    "confidence": 0.88,
+    "passwordHint": null,
+    "facts": []
+  },
+  "expected": {
+    "outcome": "extracted",
+    "intent": "delivery",
+    "confidence": 0.88,
+    "passwordHint": null,
+    "facts": []
+  }
+}

@@ -122,7 +122,7 @@ The flagship: mail in, structured facts out, bills on screen.
 
 Unlock the richest data source; put inbox signal in the ambient slot.
 
-### ⬜ Task 12 — PDF attachments + password resolution chain (L)
+### 🟨 Task 12 — PDF attachments + password resolution chain (L)
 **Depends on:** 2, 10
 - `ingest/attachments.js`: PDF text extraction; image-only PDFs skipped with `reason:'unreadable'` (OCR is Phase 3)
 - `ingest/passwords.js` chain: email-stated formula (via `passwordHint`) → known-sender formula table → stored per-sender password → user prompt queue; ≤ 8 candidates total, never brute-force; successful passwords persisted encrypted to `document_passwords`

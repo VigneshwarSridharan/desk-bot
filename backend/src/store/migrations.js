@@ -174,6 +174,15 @@ const MIGRATIONS = [
       addColumnIfMissing(db, 'mail_accounts', 'lastError', 'TEXT');
     },
   },
+  {
+    version: 4,
+    up(db) {
+      // Gmail incremental sync (ENGINEERING §3.2): historyId anchors the next
+      // fetch to "what's new since last run"; a full-query fallback is used
+      // whenever it's missing or Gmail reports it expired.
+      addColumnIfMissing(db, 'mail_accounts', 'historyId', 'TEXT');
+    },
+  },
 ];
 
 export function runMigrations(db) {

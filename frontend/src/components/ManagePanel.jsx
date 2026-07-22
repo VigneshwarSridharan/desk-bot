@@ -12,6 +12,9 @@ import {
   getTasks, addTask, removeTask, toggleTask,
 } from '../api/tasks.js'
 import { getSettings, saveSettings } from '../api/settings.js'
+import {
+  getConnections, startGoogleConnect, disconnectAccount, getAllowlist, saveAllowlist,
+} from '../api/connections.js'
 
 // ─── Shared primitives ───────────────────────────────────────────────────────
 
@@ -68,7 +71,11 @@ function Select({ label, children, ...props }) {
 }
 
 function Badge({ children, color }) {
-  const colors = { STOCK: '#1d4ed8', MF: '#7c3aed', EVENT: '#065f46', TASK: '#92400e' }
+  const colors = {
+    STOCK: '#1d4ed8', MF: '#7c3aed', EVENT: '#065f46', TASK: '#92400e',
+    CONNECTED: '#065f46', ERROR: '#7f1d1d', REVOKED: '#374151',
+    TRANSACTIONAL: '#1d4ed8', NEWSLETTER: '#7c3aed',
+  }
   return (
     <span
       className="text-xs font-semibold rounded px-1.5 py-0.5 uppercase tracking-wide"
@@ -686,6 +693,229 @@ function TasksTab() {
   )
 }
 
+// ─── Connections Tab ──────────────────────────────────────────────────────────
+
+const STATUS_LABELS = { connected: 'CONNECTED', error: 'ERROR', revoked: 'REVOKED' }
+const BLANK_ALLOWLIST_ENTRY = { pattern: '', kind: 'sender', type: 'transactional' }
+
+function AllowlistEditor({ accountId }) {
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState(BLANK_ALLOWLIST_ENTRY)
+  const [saving, setSaving] = useState(false)
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      setEntries(await getAllowlist(accountId))
+    } finally {
+      setLoading(false)
+    }
+  }, [accountId])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  async function persist(next) {
+    setSaving(true)
+    try {
+      setEntries(await saveAllowlist(accountId, next))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function addEntry() {
+    if (!form.pattern.trim()) return
+    const next = [...entries, { ...form, pattern: form.pattern.trim() }]
+    setForm(BLANK_ALLOWLIST_ENTRY)
+    await persist(next)
+  }
+
+  async function removeEntry(idx) {
+    await persist(entries.filter((_, i) => i !== idx))
+  }
+
+  if (loading) return <p className="text-sm" style={{ color: C.muted }}>Loading allowlist…</p>
+
+  return (
+    <div className="mt-3 flex flex-col gap-3">
+      {entries.length === 0 && (
+        <p className="text-sm" style={{ color: C.muted }}>No allowlist entries yet — nothing will be ingested for this account.</p>
+      )}
+      {entries.map((entry, idx) => (
+        <div
+          key={`${entry.pattern}-${idx}`}
+          className="flex items-center justify-between gap-2 py-2"
+          style={{ borderBottom: `1px solid ${C.border}` }}
+        >
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <span className="text-sm truncate" style={{ color: C.text }}>{entry.pattern}</span>
+            <span className="text-xs uppercase" style={{ color: C.muted }}>{entry.kind}</span>
+            <Badge color={entry.type === 'newsletter' ? 'NEWSLETTER' : 'TRANSACTIONAL'}>
+              {entry.type === 'newsletter' ? 'NEWSLETTER' : 'TRANSACTIONAL'}
+            </Badge>
+          </div>
+          <Btn variant="danger" small disabled={saving} onClick={() => removeEntry(idx)}>✕</Btn>
+        </div>
+      ))}
+      <div className="grid grid-cols-3 gap-2 items-end">
+        <Input
+          label="Sender / label"
+          value={form.pattern}
+          onChange={(e) => set('pattern', e.target.value)}
+          placeholder="noreply@zerodha.com"
+        />
+        <Select label="Kind" value={form.kind} onChange={(e) => set('kind', e.target.value)}>
+          <option value="sender">Sender</option>
+          <option value="label">Gmail label</option>
+        </Select>
+        <Select label="Type" value={form.type} onChange={(e) => set('type', e.target.value)}>
+          <option value="transactional">Transactional</option>
+          <option value="newsletter">Newsletter</option>
+        </Select>
+      </div>
+      <Btn small disabled={saving || !form.pattern.trim()} onClick={addEntry}>
+        {saving ? 'Saving…' : '+ Add entry'}
+      </Btn>
+    </div>
+  )
+}
+
+function AccountCard({ account, onChanged }) {
+  const [expanded, setExpanded] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+
+  async function handleDisconnect(purge) {
+    const verb = purge ? 'permanently delete all data for' : 'disconnect'
+    if (!window.confirm(`Are you sure you want to ${verb} ${account.emailAddress}?`)) return
+    setDisconnecting(true)
+    try {
+      await disconnectAccount(account.id, purge)
+      onChanged()
+    } finally {
+      setDisconnecting(false)
+    }
+  }
+
+  return (
+    <Card className="mb-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium truncate" style={{ color: C.text }}>{account.emailAddress}</span>
+            {account.label && (
+              <span className="text-xs" style={{ color: C.muted }}>{account.label}</span>
+            )}
+            <Badge color={STATUS_LABELS[account.status] || 'REVOKED'}>
+              {STATUS_LABELS[account.status] || account.status.toUpperCase()}
+            </Badge>
+          </div>
+          <span className="text-xs" style={{ color: C.muted }}>
+            Connected {new Date(account.connectedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </span>
+          {account.status === 'error' && account.lastError && (
+            <span className="text-xs" style={{ color: '#ef4444' }}>{account.lastError}</span>
+          )}
+        </div>
+        <div className="flex flex-col gap-2 flex-shrink-0 items-end">
+          <Btn variant="ghost" small onClick={() => setExpanded((e) => !e)}>
+            {expanded ? 'Hide allowlist' : 'Manage allowlist'}
+          </Btn>
+          <div className="flex gap-2">
+            <Btn variant="ghost" small disabled={disconnecting} onClick={() => handleDisconnect(false)}>Disconnect</Btn>
+            <Btn variant="danger" small disabled={disconnecting} onClick={() => handleDisconnect(true)}>Delete data</Btn>
+          </div>
+        </div>
+      </div>
+      {expanded && <AllowlistEditor accountId={account.id} />}
+    </Card>
+  )
+}
+
+function ConnectAccountForm({ onConnected, onCancel }) {
+  const [label, setLabel] = useState('')
+  const [connecting, setConnecting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function connect() {
+    setConnecting(true)
+    setError('')
+    try {
+      const { url } = await startGoogleConnect(label.trim())
+      window.open(url, '_blank', 'noopener,noreferrer')
+      onConnected()
+    } catch (err) {
+      setError(err.message || 'Failed to start Google connection.')
+    } finally {
+      setConnecting(false)
+    }
+  }
+
+  return (
+    <Card className="mt-3">
+      <div className="flex flex-col gap-3 mb-3">
+        <Input
+          label="Label (optional)"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="personal, work, ..."
+        />
+        {error && <span className="text-xs" style={{ color: '#ef4444' }}>{error}</span>}
+        <span className="text-xs" style={{ color: C.muted }}>
+          Opens Google's consent screen in a new tab. Once you approve access, come back here and refresh.
+        </span>
+      </div>
+      <div className="flex gap-2">
+        <Btn onClick={connect} disabled={connecting}>{connecting ? 'Opening…' : 'Connect with Google'}</Btn>
+        <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
+      </div>
+    </Card>
+  )
+}
+
+function ConnectionsTab() {
+  const [accounts, setAccounts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      setAccounts(await getConnections())
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { refresh() }, [refresh])
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <SectionTitle>Connected Accounts ({accounts.length})</SectionTitle>
+        <div className="flex gap-2">
+          <Btn variant="ghost" small onClick={refresh}>Refresh</Btn>
+          {!showForm && <Btn small onClick={() => setShowForm(true)}>+ Connect Google Account</Btn>}
+        </div>
+      </div>
+      {loading && <p className="text-sm py-4" style={{ color: C.muted }}>Loading connections…</p>}
+      {!loading && accounts.length === 0 && !showForm && (
+        <p className="text-sm py-4" style={{ color: C.muted }}>No accounts connected yet.</p>
+      )}
+      {accounts.map((account) => (
+        <AccountCard key={account.id} account={account} onChanged={refresh} />
+      ))}
+      {showForm && (
+        <ConnectAccountForm
+          onConnected={() => setShowForm(false)}
+          onCancel={() => setShowForm(false)}
+        />
+      )}
+    </div>
+  )
+}
+
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS = {
@@ -839,13 +1069,14 @@ function SettingsTab() {
 
 // ─── ManagePanel root ─────────────────────────────────────────────────────────
 
-const TABS = ['Portfolio', 'Reminders', 'Events', 'Tasks', 'Settings']
+const TABS = ['Portfolio', 'Reminders', 'Events', 'Tasks', 'Connections', 'Settings']
 
 const TAB_COMPONENTS = {
   Portfolio: PortfolioTab,
   Reminders: RemindersTab,
   Events: EventsTab,
   Tasks: TasksTab,
+  Connections: ConnectionsTab,
   Settings: SettingsTab,
 }
 

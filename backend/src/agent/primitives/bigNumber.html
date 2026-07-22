@@ -1,0 +1,10 @@
+<!-- bigNumber: a hero number filling most of the screen (clock, temperature, countdown) -->
+<div class="big-number" data-prim="bigNumber">
+  <div class="big-number-value" style="color:{{color}}">{{value}}</div>
+  <div class="big-number-caption">{{caption}}</div>
+</div>
+<style>
+  .big-number{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+  .big-number-value{font-size:96px;font-weight:800;line-height:1}
+  .big-number-caption{font-size:20px;color:#999;margin-top:12px}
+</style>

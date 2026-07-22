@@ -95,9 +95,10 @@ One integration that replaces per-service APIs by reading notification emails an
 #### F1.1 Connection & scope
 
 - OAuth 2.0 with **read-only** Gmail scope (`gmail.readonly`).
-- Ingestion is **scoped, not full-inbox**: user configures an allowlist of senders and/or labels in the admin panel. Only matching messages are ever fetched.
-- Refresh token stored encrypted at rest (same vault as F2).
-- Connection status, granted scope, and a one-tap **disconnect/revoke** visible in the admin panel.
+- **Multiple mailboxes supported** (e.g. personal + work): each connected account has its own OAuth token, allowlist, and connection status; all extracted facts are tagged with their source account.
+- Ingestion is **scoped, not full-inbox**: user configures an allowlist of senders and/or labels per account in the admin panel. Only matching messages are ever fetched.
+- Refresh tokens stored encrypted at rest (same vault as F2), one per account.
+- Per-account connection status, granted scope, and a one-tap **disconnect/revoke** visible in the admin panel.
 
 #### F1.2 Ingestion pipeline
 
@@ -229,8 +230,11 @@ Key structural decisions:
 // document_passwords (encrypted values)
 { id, senderPattern, passwordEnc, lastUsedAt, createdAt }
 
+// mail_accounts (tokens encrypted in vault)
+{ id, emailAddress, label: 'personal'|'work'|..., allowlist: { senders: [], labels: [] }, status, connectedAt }
+
 // processed_emails
-{ gmailMessageId, sender, subject, processedAt, outcome: 'extracted'|'skipped', reason, factRefs: [] }
+{ gmailMessageId, accountId, sender, subject, processedAt, outcome: 'extracted'|'skipped', reason, factRefs: [] }
 
 // bills
 { id, vendor, amount, currency, dueDate, status: 'due'|'paid'|'unknown', sourceEmailId }
@@ -317,20 +321,20 @@ Each milestone ships independently; the display experience keeps working through
 
 ---
 
-## 13. Open questions
+## 13. Decisions (resolved 2026-07-22)
 
-1. **Review queue default:** auto-accept with audit (proposed) vs. strict confirm-first — decide after observing M3 extraction accuracy.
-2. **Gmail push vs. polling:** start with hourly polling; adopt Pub/Sub push if latency matters for bills/invites.
-3. **Bills as a content type:** should `bill` join the Context Agent's priority ladder (likely between TASKS and PORTFOLIO)? Proposed: yes, due-within-3-days bills rank as MEDIUM.
-4. **OCR (Phase 3):** local Tesseract vs. vision-capable LLM for scanned statements.
-5. **Multi-mailbox:** support a second Gmail account (personal + work)? Deferred unless demand appears.
+1. **Review queue default: auto-accept with audit.** Extracted facts go live immediately with a full audit trail; every item is correctable/deletable in the review queue. Re-evaluate only if M3 extraction accuracy proves poor — strict confirm-first remains available as an opt-in setting.
+2. **Gmail delivery: interval polling.** Ingestion polls on a configurable interval (`INGEST_INTERVAL_MINUTES`, default 60). Pub/Sub push stays in the Phase 3 backlog.
+3. **Bills join the priority ladder.** `bill` becomes a Context Agent content type, ranked MEDIUM when due within 3 days (between TASKS and PORTFOLIO).
+4. **OCR: local Tesseract first.** Phase 3 starts with local Tesseract for scanned/image attachments (private, free); a vision-capable LLM is the later upgrade path if accuracy falls short.
+5. **Multi-mailbox: in scope.** Multiple Gmail accounts (e.g. personal + work) are supported. Each account has its own OAuth token, sender/label allowlist, and connection status; extracted facts are tagged with the source account.
 
 ---
 
 ## 14. Out-of-scope backlog (Phase 3 candidates)
 
-- OCR for scanned/image attachments
-- Gmail push notifications (Pub/Sub) for near-real-time ingestion
+- OCR for scanned/image attachments — local Tesseract first, vision LLM as later upgrade (per §13.4)
+- Gmail push notifications (Pub/Sub) for near-real-time ingestion (per §13.2)
 - Voice announcements for CRITICAL items
 - Two-way actions (RSVP, mark bill paid)
 - Multi-device / household mode

@@ -6,7 +6,7 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "devtools": "npx @ai-sdk/devtools",
-    "test": "node --test",
+    "test": "node --experimental-test-module-mocks --test",
     "gen-vault-key": "node scripts/gen-vault-key.js"
   },
   "dependencies": {
@@ -21,6 +21,7 @@
     "dotenv": "^16.4.0",
     "express": "^5.0.0",
     "node-cron": "^3.0.3",
+    "node-html-parser": "^9.0.0",
     "zod": "^3.23.0"
   }
 }

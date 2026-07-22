@@ -8,6 +8,7 @@ import {
 import { getModelForRole } from "./modelProvider.js";
 import { runContextAgent } from "./contextAgent.js";
 import { runRenderAgent } from "./renderAgent.js";
+import { validateDisplayHtml } from "./validator.js";
 
 function buildInitialPrompt(settings) {
   const now = new Date();
@@ -91,9 +92,30 @@ export async function runDisplayAgent() {
     // Phase 2: Render Agent — generate full-screen HTML from context
     console.log("[agent] Running render agent");
     const renderModel = getModelForRole("render");
-    const html = await withRateLimitRetry(() =>
+    let html = await withRateLimitRetry(() =>
       runRenderAgent(renderModel, contextResult, settings)
     );
+
+    let validation = validateDisplayHtml(html, settings);
+    if (!validation.valid) {
+      console.warn(
+        `[agent] Render validation failed: ${validation.reasons.join("; ")} — retrying once`
+      );
+      html = await withRateLimitRetry(() =>
+        runRenderAgent(renderModel, contextResult, settings, {
+          reasons: validation.reasons,
+        })
+      );
+      validation = validateDisplayHtml(html, settings);
+    }
+
+    if (!validation.valid) {
+      console.error(
+        `[agent] Render validation failed twice: ${validation.reasons.join("; ")} — keeping previous display`
+      );
+      setGenerating(false);
+      return;
+    }
 
     // Persist result
     saveDisplay({ html, contentType, decision });

@@ -28,7 +28,7 @@ describe('fresh database', () => {
 
     assert.deepEqual(
       db.prepare('SELECT version FROM schema_version ORDER BY version').all().map((r) => r.version),
-      [1, 2],
+      [1, 2, 3],
     );
 
     assert.ok(columnNames(db, 'tasks').includes('sourceEmailId'));
@@ -37,6 +37,8 @@ describe('fresh database', () => {
     assert.ok(columnNames(db, 'portfolio').includes('source'));
     assert.ok(columnNames(db, 'portfolio').includes('sourceEmailId'));
     assert.ok(columnNames(db, 'history').includes('layoutFingerprint'));
+    assert.ok(columnNames(db, 'mail_accounts').includes('authFailCount'));
+    assert.ok(columnNames(db, 'mail_accounts').includes('lastError'));
   });
 
   test('booting twice is a no-op', () => {
@@ -48,7 +50,7 @@ describe('fresh database', () => {
 
     assert.deepEqual(
       db.prepare('SELECT version FROM schema_version ORDER BY version').all().map((r) => r.version),
-      [1, 2],
+      [1, 2, 3],
     );
   });
 });
@@ -136,7 +138,7 @@ describe('copied Phase 1.5 database', () => {
     assert.deepEqual(before, after);
     assert.deepEqual(
       db.prepare('SELECT version FROM schema_version ORDER BY version').all().map((r) => r.version),
-      [1, 2],
+      [1, 2, 3],
     );
   });
 });

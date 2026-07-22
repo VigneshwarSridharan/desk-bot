@@ -165,6 +165,15 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    version: 3,
+    up(db) {
+      // Google OAuth token-refresh bookkeeping (ENGINEERING §3.1): 3 consecutive
+      // refresh failures flips mail_accounts.status to 'error'.
+      addColumnIfMissing(db, 'mail_accounts', 'authFailCount', 'INTEGER DEFAULT 0');
+      addColumnIfMissing(db, 'mail_accounts', 'lastError', 'TEXT');
+    },
+  },
 ];
 
 export function runMigrations(db) {

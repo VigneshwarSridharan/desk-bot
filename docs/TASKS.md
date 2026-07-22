@@ -130,7 +130,7 @@ Unlock the richest data source; put inbox signal in the ambient slot.
 - Vault tab: masked identity fields (name, DOB, mobile, PAN, account numbers), edit, "delete all vault data"
 - **Accept:** a fixture contract-note PDF whose email states "password is your PAN + DOB" opens automatically using vault fields; an unresolvable PDF appears in the locked queue, and entering its password once processes it and every future document from that sender.
 
-### 🟨 Task 13 — Newsletter digest path (M)
+### ✅ Task 13 — Newsletter digest path (M)
 **Depends on:** 10
 - Newsletter branch in the pipeline: strip HTML → cap 8k chars → extractAgent digest mode → 2–4 headlines into `digest_items`
 - 5-day expiry with purge on each ingestion run
@@ -164,6 +164,6 @@ Cut tokens without repeating a single layout.
 | M1 — Foundations | 1–4 | 4/4 |
 | M2 — Google plumbing | 5–7 | 3/3 |
 | M3 — Email core | 8–11 | 4/4 |
-| M4 — Locked docs & newsletters | 12–13 | 1/2 |
+| M4 — Locked docs & newsletters | 12–13 | 2/2 |
 | M5 — Rendering economy | 14 | 0/1 |
-| **Total** | **14** | **12/14** |
+| **Total** | **14** | **13/14** |

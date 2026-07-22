@@ -3,6 +3,9 @@
 // Reuses the Task 9 golden email fixtures for realistic routing/extraction
 // input, but mocks extractAgent directly (the fixture corpus already proves
 // extractAgent's own behavior in extractAgent.test.js).
+//
+// Also covers Task 13's digest-item expiry purge, which runs as part of
+// runIngestionPipeline.
 
 import { test, describe, mock, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -375,5 +378,40 @@ describe('runIngestionPipeline', () => {
     const ok = results.find((r) => r.accountId === 'acct-ok');
     assert.ok(bad.error);
     assert.equal(ok.extracted, 0);
+  });
+});
+
+describe('runIngestionPipeline — digest item expiry purge (Task 13)', () => {
+  function seedDigestItem(id, { expiresAt, sourceEmailId = null } = {}) {
+    testDb.prepare(`
+      INSERT INTO digest_items (id, headline, sourceSender, accountId, sourceEmailId, receivedAt, expiresAt)
+      VALUES (?, 'Some headline', 'newsletter@example.com', NULL, ?, datetime('now'), ?)
+    `).run(id, sourceEmailId, expiresAt ?? null);
+  }
+
+  test('expired digest items are deleted, unexpired and no-expiry items survive', async () => {
+    const past = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    seedDigestItem('d-expired', { expiresAt: past });
+    seedDigestItem('d-fresh', { expiresAt: future });
+    seedDigestItem('d-no-expiry', { expiresAt: null });
+
+    const { runIngestionPipeline } = await loadPipeline();
+    await runIngestionPipeline();
+
+    const remaining = testDb.prepare('SELECT id FROM digest_items ORDER BY id').all().map((r) => r.id);
+    assert.deepEqual(remaining, ['d-fresh', 'd-no-expiry']);
+  });
+
+  test('purgeExpiredDigestItems returns the count of rows removed', async () => {
+    const past = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    seedDigestItem('d-1', { expiresAt: past });
+    seedDigestItem('d-2', { expiresAt: past });
+
+    const { purgeExpiredDigestItems } = await loadPipeline();
+    const purged = purgeExpiredDigestItems();
+
+    assert.equal(purged, 2);
+    assert.equal(testDb.prepare('SELECT COUNT(*) AS c FROM digest_items').get().c, 0);
   });
 });

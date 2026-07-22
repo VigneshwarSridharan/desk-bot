@@ -71,7 +71,7 @@ OAuth foundation shared by Gmail and Calendar, plus the first real sync.
 - Calendar-wins dedup against email-extracted events (title + date ± 1 h)
 - **Accept:** a real invite appears in `events` within one ingestion interval; deleting it in Google removes the local row on the next run; re-running sync never duplicates.
 
-### ⬜ Task 7 — Connections tab in ManagePanel (M)
+### 🟨 Task 7 — Connections tab in ManagePanel (M)
 **Depends on:** 5
 - `frontend/src/api/connections.js` wrapper
 - Connections tab: connect/disconnect accounts, status badges, per-account sender/label allowlist editor with `transactional|newsletter` selector

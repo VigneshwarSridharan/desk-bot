@@ -57,7 +57,7 @@ Safety and resilience groundwork: schema, secrets, render safety, news resilienc
 
 OAuth foundation shared by Gmail and Calendar, plus the first real sync.
 
-### ⬜ Task 5 — Google OAuth + connections routes (L)
+### 🟨 Task 5 — Google OAuth + connections routes (L)
 **Depends on:** 1, 2
 - `google/auth.js`: loopback OAuth flow, scopes `gmail.readonly` + `calendar.readonly`, refresh tokens encrypted per account (`oauth_tokens`), access tokens in memory only, refresh on 401, 3 consecutive failures → account `status:'error'`
 - `routes/connections.js`: `GET /api/connections`, `google/start`, `google/callback`, `DELETE /:id?purge=`, allowlist CRUD with `transactional|newsletter` type

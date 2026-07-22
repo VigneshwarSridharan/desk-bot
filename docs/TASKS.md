@@ -42,7 +42,7 @@ Safety and resilience groundwork: schema, secrets, render safety, news resilienc
 - Unit tests with accept/reject HTML fixtures
 - **Accept:** a fixture with an inline `onclick` is rejected; a valid weather page passes; when the render agent returns broken HTML twice, `display_cache` still holds the previous display and the cycle logs the failure without crashing.
 
-### 🟨 Task 4 — RSS news fallback (S)
+### ✅ Task 4 — RSS news fallback (S)
 **Depends on:** —
 - `news/rss.js` with shipped default finance/tech/AI feeds; `RSS_FEEDS` env override
 - Normalize RSS items to the exact article shape NewsAPI returns
@@ -161,9 +161,9 @@ Cut tokens without repeating a single layout.
 
 | Phase | Tasks | Done |
 |---|---|---|
-| M1 — Foundations | 1–4 | 3/4 |
+| M1 — Foundations | 1–4 | 4/4 |
 | M2 — Google plumbing | 5–7 | 0/3 |
 | M3 — Email core | 8–11 | 0/4 |
 | M4 — Locked docs & newsletters | 12–13 | 0/2 |
 | M5 — Rendering economy | 14 | 0/1 |
-| **Total** | **14** | **3/14** |
+| **Total** | **14** | **4/14** |

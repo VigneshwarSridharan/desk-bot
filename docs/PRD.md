@@ -105,7 +105,7 @@ One integration that replaces per-service APIs by reading notification emails an
 Runs on its **own schedule, decoupled from the display cycle** (default: hourly; configurable; future: Gmail push notifications). Pipeline stages:
 
 1. **Fetch** new messages from allowlisted senders/labels since the last run.
-2. **Pre-filter (cheap, no LLM):** sender allowlist + keyword/header heuristics discard marketing, spam, and threads before any tokens are spent.
+2. **Pre-filter (cheap, no LLM):** sender allowlist + keyword/header heuristics discard marketing, spam, and threads before any tokens are spent. Senders tagged `newsletter` bypass the marketing discard and route to the digest path (F1.5) instead.
 3. **Dedup:** a `processed_emails` table records Gmail message IDs; a message is never processed twice. Extracted facts carry a source-message reference so re-runs cannot double-count (e.g., the same contract note can never add the same trade twice).
 4. **Extract (LLM):** an extraction agent classifies intent (transaction, bill, event, task, delivery, statement, other) and pulls structured fields into the existing data models. Attachments (PDFs) are text-extracted first; the LLM structures the result.
 5. **Store:** facts land in the existing SQLite stores (`tasks`, `events`, `portfolio`, new `bills`) tagged with `source: 'email'`, so the Context Agent consumes them through the same tools it already uses.
@@ -124,6 +124,16 @@ Resolution chain, in order:
 
 - **Image-only/scanned attachments** are out of scope (no OCR in Phase 2); they are skipped and logged. OCR is a Phase 3 candidate.
 - Extraction accuracy is best-effort; every extracted fact keeps a link to its source email so the user can audit and correct via the admin panel.
+
+#### F1.5 Newsletter digest
+
+Newsletters carry real signal (feature launches, product updates, changelogs) but are not transactional facts — they get their own path:
+
+- **Opt-in per sender:** allowlist entries carry a type, `transactional` (default) or `newsletter`. Only senders the user explicitly tags `newsletter` are digested; marketing mail from untagged senders is still discarded by the pre-filter.
+- **Headline extraction, not fact extraction:** the extraction agent pulls 2–4 bullet items per newsletter ("Portal X launched feature Y") into a `digest_items` store, each with source sender and date. No amounts/dates/tasks are inferred from newsletters.
+- **Token discipline:** newsletters are long and image-heavy, so HTML is stripped to text and capped in length before the extraction pass; the cheap `extract`-role model handles them.
+- **Ambient display slot:** digest items surface as an `inbox_digest` content type ("From your inbox: …") at the low-priority end of the ladder — alongside GENERAL news, never competing with reminders, events, or bills.
+- **Auto-expiry:** digest items expire after 5 days; stale product news is never shown.
 
 ---
 
@@ -231,7 +241,10 @@ Key structural decisions:
 { id, senderPattern, passwordEnc, lastUsedAt, createdAt }
 
 // mail_accounts (tokens encrypted in vault)
-{ id, emailAddress, label: 'personal'|'work'|..., allowlist: { senders: [], labels: [] }, status, connectedAt }
+{ id, emailAddress, label: 'personal'|'work'|..., allowlist: { senders: [{ pattern, type: 'transactional'|'newsletter' }], labels: [] }, status, connectedAt }
+
+// digest_items (from newsletter senders; auto-expire after 5 days)
+{ id, headline, sourceSender, accountId, receivedAt, expiresAt, sourceEmailId }
 
 // processed_emails
 { gmailMessageId, accountId, sender, subject, processedAt, outcome: 'extracted'|'skipped', reason, factRefs: [] }

@@ -14,6 +14,8 @@ import eventsRoutes from "./routes/events.js";
 import tasksRoutes from "./routes/tasks.js";
 import settingsRoutes from "./routes/settings.js";
 import connectionsRoutes from "./routes/connections.js";
+import billsRoutes from "./routes/bills.js";
+import ingestRoutes from "./routes/ingest.js";
 import { startScheduler } from "./scheduler.js";
 import { startIngestScheduler } from "./ingestScheduler.js";
 
@@ -51,6 +53,8 @@ app.use("/api/events", eventsRoutes);
 app.use("/api/tasks", tasksRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/connections", connectionsRoutes);
+app.use("/api/bills", billsRoutes);
+app.use("/api/ingest", ingestRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {

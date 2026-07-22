@@ -1,9 +1,10 @@
 // Second cron loop, decoupled from the display cycle (ENGINEERING §1, rule A2/A3).
-// Currently drives Calendar sync (Task 6); later tasks extend runIngestCycle
-// with the Gmail fetch → prefilter → extract → store pipeline.
+// Drives Calendar sync (Task 6) and the Gmail ingestion pipeline (Task 10)
+// on the same tick — one account/subsystem failing never blocks the other.
 
 import cron from 'node-cron';
 import { syncAllCalendars } from './google/gcal.js';
+import { runIngestionPipeline } from './ingest/pipeline.js';
 
 let currentTask = null;
 let isRunning = false;
@@ -25,10 +26,19 @@ export async function runIngestCycle() {
   try {
     await syncAllCalendars();
   } catch (err) {
-    console.error('[ingest-scheduler] cycle error:', err.message);
+    console.error('[ingest-scheduler] calendar sync error:', err.message);
+  }
+  try {
+    await runIngestionPipeline();
+  } catch (err) {
+    console.error('[ingest-scheduler] mail ingestion error:', err.message);
   } finally {
     isRunning = false;
   }
+}
+
+export function isIngestRunning() {
+  return isRunning;
 }
 
 export function startIngestScheduler() {

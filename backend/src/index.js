@@ -13,6 +13,7 @@ import remindersRoutes from "./routes/reminders.js";
 import eventsRoutes from "./routes/events.js";
 import tasksRoutes from "./routes/tasks.js";
 import settingsRoutes from "./routes/settings.js";
+import connectionsRoutes from "./routes/connections.js";
 import { startScheduler } from "./scheduler.js";
 
 const app = express();
@@ -48,6 +49,7 @@ app.use("/api/reminders", remindersRoutes);
 app.use("/api/events", eventsRoutes);
 app.use("/api/tasks", tasksRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/connections", connectionsRoutes);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {

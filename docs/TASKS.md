@@ -57,7 +57,7 @@ Safety and resilience groundwork: schema, secrets, render safety, news resilienc
 
 OAuth foundation shared by Gmail and Calendar, plus the first real sync.
 
-### 🟨 Task 5 — Google OAuth + connections routes (L)
+### ✅ Task 5 — Google OAuth + connections routes (L)
 **Depends on:** 1, 2
 - `google/auth.js`: loopback OAuth flow, scopes `gmail.readonly` + `calendar.readonly`, refresh tokens encrypted per account (`oauth_tokens`), access tokens in memory only, refresh on 401, 3 consecutive failures → account `status:'error'`
 - `routes/connections.js`: `GET /api/connections`, `google/start`, `google/callback`, `DELETE /:id?purge=`, allowlist CRUD with `transactional|newsletter` type
@@ -162,8 +162,8 @@ Cut tokens without repeating a single layout.
 | Phase | Tasks | Done |
 |---|---|---|
 | M1 — Foundations | 1–4 | 4/4 |
-| M2 — Google plumbing | 5–7 | 0/3 |
+| M2 — Google plumbing | 5–7 | 1/3 |
 | M3 — Email core | 8–11 | 0/4 |
 | M4 — Locked docs & newsletters | 12–13 | 0/2 |
 | M5 — Rendering economy | 14 | 0/1 |
-| **Total** | **14** | **4/14** |
+| **Total** | **14** | **5/14** |

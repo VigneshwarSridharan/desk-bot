@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { createBaseTables, runMigrations } from './migrations.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(__dirname, '../../data/desk-bot.db');
@@ -10,67 +11,8 @@ const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS settings (
-    key   TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS portfolio (
-    id           TEXT PRIMARY KEY,
-    symbol       TEXT NOT NULL,
-    name         TEXT DEFAULT '',
-    type         TEXT DEFAULT 'stock',
-    quantity     REAL DEFAULT 0,
-    avgPrice     REAL DEFAULT 0,
-    exchange     TEXT DEFAULT '',
-    watchlistOnly INTEGER DEFAULT 0,
-    added_at     TEXT DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS reminders (
-    id     TEXT PRIMARY KEY,
-    title  TEXT NOT NULL,
-    time   TEXT NOT NULL,
-    days   TEXT DEFAULT 'daily',
-    active INTEGER DEFAULT 1,
-    note   TEXT DEFAULT ''
-  );
-
-  CREATE TABLE IF NOT EXISTS events (
-    id          TEXT PRIMARY KEY,
-    title       TEXT NOT NULL,
-    date        TEXT NOT NULL,
-    time        TEXT,
-    description TEXT DEFAULT '',
-    type        TEXT DEFAULT 'event'
-  );
-
-  CREATE TABLE IF NOT EXISTS tasks (
-    id       TEXT PRIMARY KEY,
-    title    TEXT NOT NULL,
-    due      TEXT,
-    priority TEXT DEFAULT 'medium',
-    source   TEXT DEFAULT 'manual',
-    done     INTEGER DEFAULT 0
-  );
-
-  CREATE TABLE IF NOT EXISTS history (
-    id        TEXT PRIMARY KEY,
-    type      TEXT NOT NULL,
-    summary   TEXT DEFAULT '',
-    timestamp TEXT DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS display_cache (
-    id          INTEGER PRIMARY KEY DEFAULT 1,
-    html        TEXT DEFAULT '',
-    contentType TEXT DEFAULT '',
-    decision    TEXT DEFAULT '',
-    timestamp   TEXT DEFAULT '',
-    generating  INTEGER DEFAULT 0
-  );
-`);
+createBaseTables(db);
+runMigrations(db);
 
 // Seed display_cache row if not present
 const cacheRow = db.prepare('SELECT id FROM display_cache WHERE id = 1').get();

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "devtools": "npx @ai-sdk/devtools"
+    "devtools": "npx @ai-sdk/devtools",
+    "test": "node --test"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.1",

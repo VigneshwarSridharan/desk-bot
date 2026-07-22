@@ -1,10 +1,20 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import axios from 'axios';
+import { fetchRssArticles } from '../news/rss.js';
+
+async function fetchViaRss(topics) {
+  try {
+    const articles = await fetchRssArticles(topics);
+    return { articles, source: 'rss' };
+  } catch (err) {
+    return { articles: [], error: err.message };
+  }
+}
 
 async function doFetchNews(topics) {
   const apiKey = process.env.NEWS_API_KEY;
-  if (!apiKey) return { articles: [], error: 'No NewsAPI key configured' };
+  if (!apiKey) return fetchViaRss(topics);
 
   const query = topics.join(' OR ');
   try {
@@ -29,7 +39,7 @@ async function doFetchNews(topics) {
       }));
     return { articles };
   } catch (err) {
-    return { articles: [], error: err.message };
+    return fetchViaRss(topics);
   }
 }
 

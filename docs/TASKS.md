@@ -26,7 +26,7 @@ Safety and resilience groundwork: schema, secrets, render safety, news resilienc
 - Additive only — `ALTER TABLE ADD COLUMN`, never destructive
 - **Accept:** a copied Phase 1.5 database upgrades in place on boot with all existing rows intact; a fresh database initializes to the same final schema; booting twice is a no-op.
 
-### ⬜ Task 2 — Encrypted vault module + key generation (M)
+### 🟨 Task 2 — Encrypted vault module + key generation (M)
 **Depends on:** 1
 - `store/vault.js`: AES-256-GCM with per-value 12-byte IV, stored as `v1:<iv>:<tag>:<ciphertext>`
 - `putSecret`/`getSecret` API only — no route or agent ever sees ciphertext or the key

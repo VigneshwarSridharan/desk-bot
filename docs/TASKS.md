@@ -100,7 +100,7 @@ The flagship: mail in, structured facts out, bills on screen.
 - Golden fixture corpus under `test/fixtures/emails/` as the extraction regression suite
 - **Accept:** every golden fixture classifies and extracts to its expected JSON; a marketing email from a transactional sender is discarded before any LLM call; malformed model output is retried once then skipped with `reason:'extract-failed'`.
 
-### 🟨 Task 10 — Ingestion pipeline + scheduler + store writers + bills (L)
+### ✅ Task 10 — Ingestion pipeline + scheduler + store writers + bills (L)
 **Depends on:** 9
 - `ingest/pipeline.js`: fetch → prefilter → extract → store per account; every message recorded in `processed_emails` with outcome + reason; failures skip-and-log, never block
 - `ingestScheduler.js`: second cron on `INGEST_INTERVAL_MINUTES` (default 60), single-flight guard
@@ -163,7 +163,7 @@ Cut tokens without repeating a single layout.
 |---|---|---|
 | M1 — Foundations | 1–4 | 4/4 |
 | M2 — Google plumbing | 5–7 | 3/3 |
-| M3 — Email core | 8–11 | 2/4 |
+| M3 — Email core | 8–11 | 3/4 |
 | M4 — Locked docs & newsletters | 12–13 | 0/2 |
 | M5 — Rendering economy | 14 | 0/1 |
-| **Total** | **14** | **9/14** |
+| **Total** | **14** | **10/14** |

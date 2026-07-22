@@ -108,7 +108,7 @@ The flagship: mail in, structured facts out, bills on screen.
 - `routes/bills.js` (`GET`, `PATCH` mark-paid) and `routes/ingest.js` (activity, `POST /run` manual trigger, `DELETE /facts/:ref` reject)
 - **Accept:** processing the same fixture mailbox twice produces identical stores (zero duplicates); a rejected fact never reappears on re-run; a mid-pipeline crash on one message still processes the rest and the display cycle is unaffected.
 
-### 🟨 Task 11 — Context agent bills/digest tools + Activity tab (M)
+### ✅ Task 11 — Context agent bills/digest tools + Activity tab (M)
 **Depends on:** 10
 - `contextAgent.js`: new `get_bills()` (due/unknown, next 14 days) and `get_digest()` tools; priority ladder gains `BILL — due ≤ 3 days → MEDIUM`; `select_content` enum + `bill`, `inbox_digest`
 - Frontend: `api/ingest.js` + `api/bills.js` wrappers; Activity/Review tab (recent runs, skipped items with reasons, one-tap fact reject)
@@ -163,7 +163,7 @@ Cut tokens without repeating a single layout.
 |---|---|---|
 | M1 — Foundations | 1–4 | 4/4 |
 | M2 — Google plumbing | 5–7 | 3/3 |
-| M3 — Email core | 8–11 | 3/4 |
+| M3 — Email core | 8–11 | 4/4 |
 | M4 — Locked docs & newsletters | 12–13 | 0/2 |
 | M5 — Rendering economy | 14 | 0/1 |
-| **Total** | **14** | **10/14** |
+| **Total** | **14** | **11/14** |

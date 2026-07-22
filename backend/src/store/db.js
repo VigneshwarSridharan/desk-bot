@@ -226,6 +226,32 @@ export function toggleTask(id) {
   db.prepare('UPDATE tasks SET done = CASE WHEN done = 1 THEN 0 ELSE 1 END WHERE id = ?').run(id);
 }
 
+// ─── Bills ───────────────────────────────────────────────────────────────────
+
+// Unpaid bills due within `days` from today, plus bills with no known due
+// date at all — the pool the get_bills context-agent tool reasons over.
+export function getBillsDueSoon(days = 14) {
+  const future = new Date();
+  future.setDate(future.getDate() + days);
+  const futureStr = future.toISOString().slice(0, 10);
+  return db.prepare(`
+    SELECT * FROM bills
+    WHERE status != 'paid' AND (dueDate IS NULL OR dueDate <= ?)
+    ORDER BY (dueDate IS NULL), dueDate ASC
+  `).all(futureStr);
+}
+
+// ─── Digest Items ────────────────────────────────────────────────────────────
+
+export function getActiveDigestItems() {
+  const now = new Date().toISOString();
+  return db.prepare(`
+    SELECT * FROM digest_items
+    WHERE expiresAt IS NULL OR expiresAt >= ?
+    ORDER BY receivedAt DESC
+  `).all(now);
+}
+
 // ─── History ─────────────────────────────────────────────────────────────────
 
 export function getHistory() {

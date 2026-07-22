@@ -145,7 +145,7 @@ Unlock the richest data source; put inbox signal in the ambient slot.
 
 Cut tokens without repeating a single layout.
 
-### 🟨 Task 14 — Composable UI primitives + layout fingerprints + token instrumentation (L)
+### ✅ Task 14 — Composable UI primitives + layout fingerprints + token instrumentation (L)
 **Depends on:** —
 - `agent/primitives/`: snippet library (statCard, listRow, timeline, chartMacro, progressBar, badge, bigNumber, weatherStrip), each carrying a `data-prim` attribute; `index.js` builds the prompt block
 - Render prompt rework: primitives as vocabulary not cage — compose any subset, custom HTML allowed, vary layout/arrangement/accent every cycle
@@ -165,5 +165,5 @@ Cut tokens without repeating a single layout.
 | M2 — Google plumbing | 5–7 | 3/3 |
 | M3 — Email core | 8–11 | 4/4 |
 | M4 — Locked docs & newsletters | 12–13 | 2/2 |
-| M5 — Rendering economy | 14 | 0/1 |
-| **Total** | **14** | **13/14** |
+| M5 — Rendering economy | 14 | 1/1 |
+| **Total** | **14** | **14/14** |

@@ -28,7 +28,8 @@ mock.module("../src/store/db.js", {
       dbState.contentType = contentType;
       dbState.decision = decision;
     },
-    addToHistory: (type, summary) => addToHistoryCalls.push({ type, summary }),
+    addToHistory: (type, summary, layoutFingerprint) =>
+      addToHistoryCalls.push({ type, summary, layoutFingerprint }),
     getHistory: () => [],
   },
 });
@@ -37,7 +38,7 @@ mock.module("../src/agent/modelProvider.js", {
   namedExports: { getModelForRole: () => "fake-model" },
 });
 
-let renderAgentImpl = async () => VALID_HTML;
+let renderAgentImpl = async () => ({ html: VALID_HTML, usage: undefined });
 mock.module("../src/agent/contextAgent.js", {
   namedExports: {
     runContextAgent: async () => ({
@@ -66,22 +67,24 @@ beforeEach(() => {
 
 describe("runDisplayAgent — validator hook", () => {
   test("valid render on first try is saved", async () => {
-    renderAgentImpl = async () => VALID_HTML;
+    renderAgentImpl = async () => ({ html: VALID_HTML, usage: undefined });
     await runDisplayAgent();
     assert.equal(saveDisplayCalls.length, 1);
     assert.equal(saveDisplayCalls[0].html, VALID_HTML);
+    assert.equal(addToHistoryCalls.length, 1);
+    assert.ok(addToHistoryCalls[0].layoutFingerprint);
   });
 
   test("invalid render succeeds on the retry with failure reasons appended", async () => {
     let calls = 0;
-    renderAgentImpl = async (_model, _ctx, _settings, retryContext) => {
+    renderAgentImpl = async (_model, _ctx, _settings, options) => {
       calls += 1;
       if (calls === 1) {
-        assert.equal(retryContext, undefined);
-        return BROKEN_HTML;
+        assert.equal(options.retryContext, undefined);
+        return { html: BROKEN_HTML, usage: undefined };
       }
-      assert.ok(retryContext?.reasons?.length > 0);
-      return VALID_HTML;
+      assert.ok(options.retryContext?.reasons?.length > 0);
+      return { html: VALID_HTML, usage: undefined };
     };
     await runDisplayAgent();
     assert.equal(calls, 2);
@@ -90,7 +93,7 @@ describe("runDisplayAgent — validator hook", () => {
   });
 
   test("broken HTML twice keeps the previous display and doesn't crash", async () => {
-    renderAgentImpl = async () => BROKEN_HTML;
+    renderAgentImpl = async () => ({ html: BROKEN_HTML, usage: undefined });
     await assert.doesNotReject(() => runDisplayAgent());
     assert.equal(saveDisplayCalls.length, 0);
     assert.equal(dbState.html, "previous-cached-html");

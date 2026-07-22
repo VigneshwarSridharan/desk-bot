@@ -9,6 +9,7 @@ import { getModelForRole } from "./modelProvider.js";
 import { runContextAgent } from "./contextAgent.js";
 import { runRenderAgent } from "./renderAgent.js";
 import { validateDisplayHtml } from "./validator.js";
+import { computeLayoutFingerprint } from "./primitives/index.js";
 
 function buildInitialPrompt(settings) {
   const now = new Date();
@@ -57,6 +58,17 @@ async function withRateLimitRetry(fn, maxAttempts = 4) {
   }
 }
 
+// Token instrumentation (ENGINEERING §12): logs the AI SDK's reported usage for
+// each render call so per-cycle cost is visible in the logs and comparable
+// before/after the primitives rework — no schema change needed for this.
+function logRenderUsage(usage) {
+  if (!usage) return;
+  const { inputTokens, outputTokens, totalTokens } = usage;
+  console.log(
+    `[agent] Render usage: input=${inputTokens ?? "?"} output=${outputTokens ?? "?"} total=${totalTokens ?? "?"}`
+  );
+}
+
 let isRunning = false;
 
 export async function runDisplayAgent() {
@@ -92,20 +104,28 @@ export async function runDisplayAgent() {
     // Phase 2: Render Agent — generate full-screen HTML from context
     console.log("[agent] Running render agent");
     const renderModel = getModelForRole("render");
-    let html = await withRateLimitRetry(() =>
-      runRenderAgent(renderModel, contextResult, settings)
+    const recentFingerprints = getHistory()
+      .slice(0, 5)
+      .map((h) => h.layoutFingerprint)
+      .filter(Boolean);
+
+    let { html, usage } = await withRateLimitRetry(() =>
+      runRenderAgent(renderModel, contextResult, settings, { recentFingerprints })
     );
+    logRenderUsage(usage);
 
     let validation = validateDisplayHtml(html, settings);
     if (!validation.valid) {
       console.warn(
         `[agent] Render validation failed: ${validation.reasons.join("; ")} — retrying once`
       );
-      html = await withRateLimitRetry(() =>
+      ({ html, usage } = await withRateLimitRetry(() =>
         runRenderAgent(renderModel, contextResult, settings, {
-          reasons: validation.reasons,
+          retryContext: { reasons: validation.reasons },
+          recentFingerprints,
         })
-      );
+      ));
+      logRenderUsage(usage);
       validation = validateDisplayHtml(html, settings);
     }
 
@@ -118,9 +138,10 @@ export async function runDisplayAgent() {
     }
 
     // Persist result
+    const layoutFingerprint = computeLayoutFingerprint(html);
     saveDisplay({ html, contentType, decision });
-    addToHistory(contentType, decision.slice(0, 120));
-    console.log(`[agent] Display rendered: ${contentType}`);
+    addToHistory(contentType, decision.slice(0, 120), layoutFingerprint);
+    console.log(`[agent] Display rendered: ${contentType} (fingerprint ${layoutFingerprint.slice(0, 8)})`);
 
   } catch (err) {
     console.error("[agent] Cycle failed:", err.message);

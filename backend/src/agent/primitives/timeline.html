@@ -1,0 +1,15 @@
+<!-- timeline: a vertical sequence of time-stamped entries (events, upcoming reminders) -->
+<div class="timeline" data-prim="timeline">
+  <div class="timeline-entry">
+    <div class="timeline-time">{{time}}</div>
+    <div class="timeline-dot" style="background:{{color}}"></div>
+    <div class="timeline-title">{{title}}</div>
+  </div>
+</div>
+<style>
+  .timeline{display:flex;flex-direction:column;gap:18px}
+  .timeline-entry{display:grid;grid-template-columns:72px 16px 1fr;align-items:center;gap:12px}
+  .timeline-time{font-size:16px;color:#aaa;font-variant-numeric:tabular-nums}
+  .timeline-dot{width:12px;height:12px;border-radius:50%}
+  .timeline-title{font-size:20px;font-weight:600}
+</style>

@@ -1,0 +1,14 @@
+<!-- listRow: one line item with a title, optional meta text, and a trailing badge/value -->
+<div class="list-row" data-prim="listRow">
+  <div class="list-row-main">
+    <div class="list-row-title">{{title}}</div>
+    <div class="list-row-meta">{{meta}}</div>
+  </div>
+  <div class="list-row-trailing" style="color:{{color}}">{{trailing}}</div>
+</div>
+<style>
+  .list-row{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid #222}
+  .list-row-title{font-size:20px;font-weight:600}
+  .list-row-meta{font-size:14px;color:#888;margin-top:4px}
+  .list-row-trailing{font-size:20px;font-weight:700}
+</style>

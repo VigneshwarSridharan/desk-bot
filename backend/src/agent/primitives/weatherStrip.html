@@ -1,0 +1,15 @@
+<!-- weatherStrip: a horizontal row of day/icon/temperature tiles for a multi-day forecast -->
+<div class="weather-strip" data-prim="weatherStrip">
+  <div class="weather-strip-day">
+    <div class="weather-strip-label">{{day}}</div>
+    <div class="weather-strip-icon">{{icon}}</div>
+    <div class="weather-strip-temp">{{temp}}</div>
+  </div>
+</div>
+<style>
+  .weather-strip{display:flex;justify-content:space-between;gap:12px}
+  .weather-strip-day{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1}
+  .weather-strip-label{font-size:14px;color:#999}
+  .weather-strip-icon{font-size:28px}
+  .weather-strip-temp{font-size:18px;font-weight:600}
+</style>

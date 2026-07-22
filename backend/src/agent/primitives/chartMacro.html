@@ -1,0 +1,15 @@
+<!-- chartMacro: a Chart.js canvas for a small line/bar chart (e.g. portfolio trend, weather forecast) -->
+<div class="chart-macro" data-prim="chartMacro">
+  <canvas id="{{canvasId}}"></canvas>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  new Chart(document.getElementById('{{canvasId}}'), {
+    type: '{{chartType}}',
+    data: {{chartData}},
+    options: { responsive: true, plugins: { legend: { display: false } } },
+  });
+</script>
+<style>
+  .chart-macro{background:#161616;border-radius:16px;padding:20px}
+</style>

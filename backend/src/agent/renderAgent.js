@@ -1,4 +1,5 @@
 import { generateText } from "ai";
+import { buildPrimitivesPromptBlock } from "./primitives/index.js";
 
 const RENDER_SYSTEM_PROMPT = `You are a UI renderer for a personal desk bot — an always-on ambient display on a dedicated Android device. Your only job is to generate a beautiful, full-screen HTML document based on the content type and data provided.
 
@@ -23,7 +24,11 @@ HTML GENERATION RULES:
 
 Respond with ONLY the HTML document. No markdown fences, no explanation, no preamble.`;
 
-export async function runRenderAgent(model, contextResult, settings, retryContext) {
+// Loaded once — the primitive vocabulary itself never changes between cycles.
+const PRIMITIVES_BLOCK = buildPrimitivesPromptBlock();
+
+export async function runRenderAgent(model, contextResult, settings, options = {}) {
+  const { retryContext, recentFingerprints = [] } = options;
   const { contentType, decision, contextData } = contextResult;
 
   const now = new Date();
@@ -43,6 +48,10 @@ export async function runRenderAgent(model, contextResult, settings, retryContex
     ? `\n\nThe previous attempt failed validation — fix these issues:\n${retryContext.reasons.map((r) => `- ${r}`).join("\n")}`
     : "";
 
+  const avoidNote = recentFingerprints.length
+    ? `\n\nAvoid repeating the composition (primitive set + arrangement) behind these recent layout fingerprints — vary which primitives you use, their order, and accent colors from whatever produced these: ${recentFingerprints.join(", ")}`
+    : "";
+
   const renderPrompt = `Content type to render: ${contentType}
 Decision: ${decision}
 Current time: ${timeStr}
@@ -50,14 +59,14 @@ Current date: ${dateStr}
 Screen dimensions: ${settings.screenWidth || 412}×${settings.screenHeight || 892}px
 
 Context data:
-${JSON.stringify(contextData, null, 2)}${retryNote}
+${JSON.stringify(contextData, null, 2)}${retryNote}${avoidNote}
 
 Generate the complete HTML display now.`;
 
   const result = await generateText({
     model,
     maxRetries: 0,
-    system: RENDER_SYSTEM_PROMPT,
+    system: `${RENDER_SYSTEM_PROMPT}\n\n${PRIMITIVES_BLOCK}`,
     prompt: renderPrompt,
   });
 
@@ -66,5 +75,5 @@ Generate the complete HTML display now.`;
     html = html.replace(/^```[a-z]*\n?/, "").replace(/\n?```$/, "").trim();
   }
 
-  return html;
+  return { html, usage: result.usage };
 }

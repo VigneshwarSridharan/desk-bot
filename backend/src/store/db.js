@@ -258,10 +258,10 @@ export function getHistory() {
   return db.prepare('SELECT * FROM history ORDER BY timestamp DESC LIMIT 10').all();
 }
 
-export function addToHistory(type, summary) {
+export function addToHistory(type, summary, layoutFingerprint) {
   const id = crypto.randomUUID();
-  db.prepare('INSERT INTO history (id, type, summary, timestamp) VALUES (?, ?, ?, ?)').run(
-    id, type, summary || '', new Date().toISOString(),
+  db.prepare('INSERT INTO history (id, type, summary, layoutFingerprint, timestamp) VALUES (?, ?, ?, ?, ?)').run(
+    id, type, summary || '', layoutFingerprint || null, new Date().toISOString(),
   );
   // Purge oldest beyond 10
   db.exec(`

@@ -85,7 +85,7 @@ OAuth foundation shared by Gmail and Calendar, plus the first real sync.
 
 The flagship: mail in, structured facts out, bills on screen.
 
-### ⬜ Task 8 — Gmail fetch: allowlist query + historyId sync (M)
+### 🟨 Task 8 — Gmail fetch: allowlist query + historyId sync (M)
 **Depends on:** 5
 - `google/gmail.js`: compile allowlist → Gmail query (`from:… OR label:…`, always `-in:spam -in:trash`, `newer_than:7d`)
 - Incremental sync via per-account `historyId`, full-query fallback on expiry

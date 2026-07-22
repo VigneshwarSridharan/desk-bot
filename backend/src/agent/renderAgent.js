@@ -23,7 +23,7 @@ HTML GENERATION RULES:
 
 Respond with ONLY the HTML document. No markdown fences, no explanation, no preamble.`;
 
-export async function runRenderAgent(model, contextResult, settings) {
+export async function runRenderAgent(model, contextResult, settings, retryContext) {
   const { contentType, decision, contextData } = contextResult;
 
   const now = new Date();
@@ -39,6 +39,10 @@ export async function runRenderAgent(model, contextResult, settings) {
     year: "numeric",
   });
 
+  const retryNote = retryContext?.reasons?.length
+    ? `\n\nThe previous attempt failed validation — fix these issues:\n${retryContext.reasons.map((r) => `- ${r}`).join("\n")}`
+    : "";
+
   const renderPrompt = `Content type to render: ${contentType}
 Decision: ${decision}
 Current time: ${timeStr}
@@ -46,7 +50,7 @@ Current date: ${dateStr}
 Screen dimensions: ${settings.screenWidth || 412}×${settings.screenHeight || 892}px
 
 Context data:
-${JSON.stringify(contextData, null, 2)}
+${JSON.stringify(contextData, null, 2)}${retryNote}
 
 Generate the complete HTML display now.`;
 

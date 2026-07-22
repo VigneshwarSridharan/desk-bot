@@ -35,7 +35,7 @@ Safety and resilience groundwork: schema, secrets, render safety, news resilienc
 - Unit tests: encrypt/decrypt round-trip, tamper detection, wrong-key detection
 - **Accept:** round-trip returns the original value; flipping one ciphertext byte throws; starting with the wrong key against a non-empty vault logs a clear error and disables ingestion features instead of returning garbage.
 
-### 🟨 Task 3 — Render-output validator (M)
+### ✅ Task 3 — Render-output validator (M)
 **Depends on:** —
 - `agent/validator.js`: parseable HTML, self-contained (Chart.js CDN allowlist only), no `<form>`/inline `on*=` handlers, dimensions match settings
 - Hook into `displayAgent.js`: validation failure → one render retry with failure reasons appended → keep previous display on second failure
@@ -161,9 +161,9 @@ Cut tokens without repeating a single layout.
 
 | Phase | Tasks | Done |
 |---|---|---|
-| M1 — Foundations | 1–4 | 2/4 |
+| M1 — Foundations | 1–4 | 3/4 |
 | M2 — Google plumbing | 5–7 | 0/3 |
 | M3 — Email core | 8–11 | 0/4 |
 | M4 — Locked docs & newsletters | 12–13 | 0/2 |
 | M5 — Rendering economy | 14 | 0/1 |
-| **Total** | **14** | **2/14** |
+| **Total** | **14** | **3/14** |

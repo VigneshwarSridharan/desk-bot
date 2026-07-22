@@ -85,7 +85,7 @@ OAuth foundation shared by Gmail and Calendar, plus the first real sync.
 
 The flagship: mail in, structured facts out, bills on screen.
 
-### 🟨 Task 8 — Gmail fetch: allowlist query + historyId sync (M)
+### ✅ Task 8 — Gmail fetch: allowlist query + historyId sync (M)
 **Depends on:** 5
 - `google/gmail.js`: compile allowlist → Gmail query (`from:… OR label:…`, always `-in:spam -in:trash`, `newer_than:7d`)
 - Incremental sync via per-account `historyId`, full-query fallback on expiry
@@ -163,7 +163,7 @@ Cut tokens without repeating a single layout.
 |---|---|---|
 | M1 — Foundations | 1–4 | 4/4 |
 | M2 — Google plumbing | 5–7 | 3/3 |
-| M3 — Email core | 8–11 | 0/4 |
+| M3 — Email core | 8–11 | 1/4 |
 | M4 — Locked docs & newsletters | 12–13 | 0/2 |
 | M5 — Rendering economy | 14 | 0/1 |
-| **Total** | **14** | **7/14** |
+| **Total** | **14** | **8/14** |

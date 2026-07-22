@@ -41,6 +41,17 @@ function alreadyProcessed(gmailMessageId) {
   return !!db.prepare('SELECT 1 FROM processed_emails WHERE gmailMessageId = ?').get(gmailMessageId);
 }
 
+// Task 13 / ENGINEERING §4: digest_items carry a 5-day expiry (set at write
+// time in upsertDigestItem below). getActiveDigestItems already filters
+// expired rows out of what the context agent sees, but the rows themselves
+// only actually go away here — run once per ingestion cycle so stale inbox
+// headlines don't accumulate forever.
+export function purgeExpiredDigestItems() {
+  const now = new Date().toISOString();
+  const result = db.prepare('DELETE FROM digest_items WHERE expiresAt IS NOT NULL AND expiresAt < ?').run(now);
+  return Number(result.changes) || 0;
+}
+
 // Upsert rather than plain insert: digest_items has a hard FK on
 // processed_emails.gmailMessageId, so the newsletter/transactional paths
 // write a stub row *before* writing facts (satisfying the FK) and then
@@ -324,6 +335,9 @@ export async function processAccount(accountId) {
 
 /** Runs the full pipeline over every connected account; one account's failure never blocks the others. */
 export async function runIngestionPipeline() {
+  const purged = purgeExpiredDigestItems();
+  if (purged) console.log(`[ingest] purged ${purged} expired digest item(s)`);
+
   const accounts = db.prepare("SELECT id FROM mail_accounts WHERE status = 'connected'").all();
   const results = [];
   for (const { id } of accounts) {

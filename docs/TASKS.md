@@ -92,7 +92,7 @@ The flagship: mail in, structured facts out, bills on screen.
 - Caps: ≤ 50 messages/run, ≤ 10 MB attachment, body truncated to 20k chars; over-cap items skipped with `reason:'cap'`
 - **Accept:** only allowlisted-sender messages are ever fetched (verified against a mock mailbox containing spam and off-list mail); a second run with no new mail fetches nothing.
 
-### ⬜ Task 9 — Prefilter + extract agent + `extract` model role (L)
+### 🟨 Task 9 — Prefilter + extract agent + `extract` model role (L)
 **Depends on:** 8
 - `ingest/prefilter.js`: allowlist defense-in-depth, `newsletter` routing, `List-Unsubscribe` → discard `'marketing'`, thread headers → discard `'thread'`
 - `agent/extractAgent.js`: transactional + digest JSON modes per ENGINEERING §5.2, `confidence < 0.5` → skip, omit-rather-than-guess prompt rule, one JSON-fix retry

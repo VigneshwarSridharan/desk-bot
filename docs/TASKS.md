@@ -64,7 +64,7 @@ OAuth foundation shared by Gmail and Calendar, plus the first real sync.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in `.env`
 - **Accept:** completing consent creates a `mail_accounts` row with an encrypted token; `GET /api/connections` never returns token material; disconnect revokes at Google and deletes the token row.
 
-### 🟨 Task 6 — Google Calendar sync (M)
+### ✅ Task 6 — Google Calendar sync (M)
 **Depends on:** 5
 - `google/gcal.js`: pull `now … +7d` events per account on the ingestion cron
 - Upsert into `events` with `source:'gcal'`, `sourceRef = eventId`; reconcile deletions by re-listing the window
@@ -162,8 +162,8 @@ Cut tokens without repeating a single layout.
 | Phase | Tasks | Done |
 |---|---|---|
 | M1 — Foundations | 1–4 | 4/4 |
-| M2 — Google plumbing | 5–7 | 1/3 |
+| M2 — Google plumbing | 5–7 | 2/3 |
 | M3 — Email core | 8–11 | 0/4 |
 | M4 — Locked docs & newsletters | 12–13 | 0/2 |
 | M5 — Rendering economy | 14 | 0/1 |
-| **Total** | **14** | **5/14** |
+| **Total** | **14** | **6/14** |
